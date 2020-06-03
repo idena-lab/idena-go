@@ -21,3 +21,11 @@ type G2 = bn256.G2
 func PairingCheck(a []*G1, b []*G2) bool {
 	return bn256.PairingCheck(a, b)
 }
+
+func RandomG1(r io.Reader) (*big.Int, *G1, error) {
+	return bn256.RandomG1(r)
+}
+
+func RandomG2(r io.Reader) (*big.Int, *G2, error) {
+	return bn256.RandomG2(r)
+}

@@ -16,3 +16,17 @@ func TestSecStore_VrfEvaluate(t *testing.T) {
 	require.Equal(t, index, index2)
 	require.NotEqual(t, proof, proof2)
 }
+
+func TestSecStore_GetBlsPriKey(t *testing.T) {
+	seed := []byte("bls-256-for-eth-relay")
+	sh := crypto.Hash(seed)
+	require.Equal(t, sh[:], blsSeedHash)
+
+	ss := NewSecStore()
+	key, _ := crypto.GenerateKey()
+	ss.AddKey(crypto.FromECDSA(key))
+
+	k1 := ss.GetBlsPriKey()
+	k2 := ss.GetBlsPriKey()
+	require.Equal(t, k1.ToHex(), k2.ToHex())
+}

@@ -178,6 +178,9 @@ func main() {
 				Address:  addr[:],
 				Approved: data.Approved,
 				Online:   false,
+				Index:    data.Index,
+				Pk1:      data.Pk1,
+				Pk2:      data.Pk2,
 			})
 			return false
 		})

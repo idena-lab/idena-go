@@ -34,6 +34,7 @@ var (
 		types.BurnTx:               "burn",
 		types.ChangeProfileTx:      "changeProfile",
 		types.DeleteFlipTx:         "deleteFlip",
+		types.BlsKeysTx:            "blsKeys",
 	}
 )
 
@@ -211,7 +212,7 @@ func (api *BlockchainApi) FeePerByte() *big.Int {
 func (api *BlockchainApi) SendRawTx(ctx context.Context, bytesTx hexutil.Bytes) (common.Hash, error) {
 	var tx types.Transaction
 	if err := tx.FromBytes(bytesTx); err != nil {
-		//TODO: remove later
+		// TODO: remove later
 		if err := rlp.DecodeBytes(bytesTx, &tx); err != nil {
 			return common.Hash{}, err
 		} else {

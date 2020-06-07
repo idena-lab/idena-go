@@ -67,6 +67,7 @@ type ValidationCeremony struct {
 	privateKeysSent          bool
 	shortAnswersSent         bool
 	evidenceSent             bool
+	blsKeysSent              bool
 	shortSessionStarted      bool
 	candidates               []*candidate
 	nonCandidates            []common.Address
@@ -335,6 +336,7 @@ func (vc *ValidationCeremony) completeEpoch() {
 	vc.privateKeysSent = false
 	vc.shortAnswersSent = false
 	vc.evidenceSent = false
+	vc.blsKeysSent = false
 	vc.shortSessionStarted = false
 	vc.validationStats = nil
 	vc.flipAuthorMap = nil
@@ -723,6 +725,23 @@ func (vc *ValidationCeremony) broadcastEvidenceMap() {
 		vc.evidenceSent = true
 	} else {
 		vc.log.Error("cannot send evidence tx", "err", err)
+	}
+}
+
+func (vc *ValidationCeremony) broadcastBlsKeys() {
+	if vc.blsKeysSent || !vc.shouldInteractWithNetwork() || !vc.isCandidate() || !vc.shortAnswersSent {
+		return
+	}
+	if vc.appState.ValidatorsCache.HasBlsKey(vc.secStore.GetAddress()) {
+		return
+	}
+	sk := vc.secStore.GetBlsPriKey()
+	sig := sk.Sign(vc.secStore.GetAddress().Bytes())
+
+	if _, err := vc.sendTx(types.BlsKeysTx, attachments.CreateBlsKeysAttachment(sk.GetPub1(), sk.GetPub2(), sig)); err == nil {
+		vc.blsKeysSent = true
+	} else {
+		vc.log.Error("cannot send bls keys tx", "err", err)
 	}
 }
 

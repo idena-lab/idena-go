@@ -353,12 +353,18 @@ func (i *Identity) GetMaximumAvailableFlips() uint8 {
 type ApprovedIdentity struct {
 	Approved bool
 	Online   bool
+	Index    uint32
+	Pk1      []byte
+	Pk2      []byte
 }
 
 func (s *ApprovedIdentity) ToBytes() ([]byte, error) {
 	protoAnswer := &models.ProtoStateApprovedIdentity{
 		Approved: s.Approved,
 		Online:   s.Online,
+		Index:    s.Index,
+		Pk1:      s.Pk1,
+		Pk2:      s.Pk2,
 	}
 	return proto.Marshal(protoAnswer)
 }
@@ -370,6 +376,9 @@ func (s *ApprovedIdentity) FromBytes(data []byte) error {
 	}
 	s.Approved = protoIdentity.Approved
 	s.Online = protoIdentity.Online
+	s.Index = protoIdentity.Index
+	s.Pk1 = protoIdentity.Pk1
+	s.Pk2 = protoIdentity.Pk2
 	return nil
 }
 
@@ -953,6 +962,17 @@ func (s *stateApprovedIdentity) SetState(approved bool) {
 
 func (s *stateApprovedIdentity) SetOnline(online bool) {
 	s.data.Online = online
+	s.touch()
+}
+
+func (s *stateApprovedIdentity) SetIndex(index uint32) {
+	s.data.Index = index
+	s.touch()
+}
+
+func (s *stateApprovedIdentity) SetBlsKeys(pk1, pk2 []byte) {
+	s.data.Pk1 = pk1
+	s.data.Pk2 = pk2
 	s.touch()
 }
 

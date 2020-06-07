@@ -314,6 +314,14 @@ func (s *IdentityStateDB) SetOnline(addr common.Address, online bool) {
 	s.GetOrNewIdentityObject(addr).SetOnline(online)
 }
 
+func (s *IdentityStateDB) SetIndex(addr common.Address, index uint32) {
+	s.GetOrNewIdentityObject(addr).SetIndex(index)
+}
+
+func (s *IdentityStateDB) SetBlsKeys(addr common.Address, pk1, pk2 []byte) {
+	s.GetOrNewIdentityObject(addr).SetBlsKeys(pk1, pk2)
+}
+
 func (s *IdentityStateDB) ResetTo(height uint64) error {
 	s.Clear()
 	_, err := s.tree.LoadVersionForOverwriting(int64(height))
@@ -408,6 +416,9 @@ func (s *IdentityStateDB) SetPredefinedIdentities(state *models.ProtoPredefinedS
 		stateObj := s.GetOrNewIdentityObject(common.BytesToAddress(identity.Address))
 		stateObj.data.Online = false
 		stateObj.data.Approved = identity.Approved
+		stateObj.data.Index = identity.Index
+		stateObj.data.Pk1 = identity.Pk1
+		stateObj.data.Pk2 = identity.Pk2
 		stateObj.touch()
 	}
 }

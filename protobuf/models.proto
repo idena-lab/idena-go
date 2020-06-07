@@ -306,6 +306,12 @@ message ProtoDeleteFlipAttachment {
     bytes cid = 1;
 }
 
+message ProtoBlsKeysAttachment {
+		bytes pk1 = 1;
+		bytes pk2 = 2;
+		bytes sig = 3;
+}
+
 // State
 
 message ProtoStateAccount {
@@ -363,6 +369,9 @@ message ProtoStateGlobal {
 message ProtoStateApprovedIdentity {
     bool approved = 1;
     bool online = 2;
+    uint32 index = 3;
+    bytes pk1 = 4;
+    bytes pk2 = 5;
 }
 
 message ProtoStateIdentityStatusSwitch {
@@ -432,6 +441,9 @@ message ProtoPredefinedState {
         bytes address = 1;
         bool approved = 2;
         bool online = 3;
+				uint32 index = 4;
+				bytes pk1 = 5;
+				bytes pk2 = 6;
     }
 
     uint64 block = 1;

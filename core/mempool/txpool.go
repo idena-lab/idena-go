@@ -29,6 +29,7 @@ var (
 		types.SubmitShortAnswersTx: true,
 		types.SubmitLongAnswersTx:  true,
 		types.EvidenceTx:           true,
+		types.BlsKeysTx:            true,
 	}
 )
 

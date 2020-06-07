@@ -9,6 +9,7 @@ import (
 	"github.com/idena-network/idena-go/core/appstate"
 	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/crypto"
+	"github.com/idena-network/idena-go/crypto/bls"
 	"github.com/idena-network/idena-go/crypto/vrf/p256"
 	"github.com/ipfs/go-cid"
 	"github.com/pkg/errors"
@@ -55,6 +56,8 @@ var (
 	InvalidSender        = errors.New("invalid sender")
 	FlipIsMissing        = errors.New("flip is missing")
 	DuplicatedTx         = errors.New("duplicated tx")
+	InvalidBlsKey        = errors.New("invalid bls key")
+	DuplicatedBlsKey     = errors.New("duplicated bls key")
 	validators           map[types.TxType]validator
 )
 
@@ -85,6 +88,7 @@ func init() {
 		types.BurnTx:               validateBurnTx,
 		types.ChangeProfileTx:      validateChangeProfileTx,
 		types.DeleteFlipTx:         validateDeleteFlipTx,
+		types.BlsKeysTx:            validateBlsKeysTx,
 	}
 }
 
@@ -672,5 +676,51 @@ func validateDeleteFlipTx(appState *appstate.AppState, tx *types.Transaction, tx
 		return FlipIsMissing
 	}
 
+	return nil
+}
+
+func validateBlsKeysTx(appState *appstate.AppState, tx *types.Transaction, txType TxType) error {
+	sender, _ := types.Sender(tx)
+
+	if tx.To != nil {
+		return InvalidRecipient
+	}
+	if err := ValidateFee(appState, tx, txType); err != nil {
+		return err
+	}
+	if err := validateTotalCost(sender, appState, tx, txType); err != nil {
+		return err
+	}
+	// todo: maybe not necessary
+	if appState.State.ValidationPeriod() < state.LongSessionPeriod && txType == InBlockTx {
+		return EarlyTx
+	}
+	if !state.IsCeremonyCandidate(appState.State.GetIdentity(sender)) {
+		return NotCandidate
+	}
+	// todo: maybe necessary
+	if err := validateCeremonyTx(sender, appState, tx); err != nil {
+		return err
+	}
+
+	attachment := attachments.ParseBlsKeysAttachment(tx)
+	if attachment == nil {
+		return InvalidPayload
+	}
+
+	// the pk1 and pk2 must match
+	if !bls.CheckPubKeyPair(attachment.Pk1, attachment.Pk2) {
+		return InvalidBlsKey
+	}
+	// the bls keys are bound to the sender
+	if !bls.Verify(sender.Bytes(), attachment.Sig, attachment.Pk2) {
+		return InvalidBlsKey
+	}
+
+	if appState.ValidatorsCache.HasBlsKey(sender) {
+		return DuplicatedTx
+	}
+	// todo: make sure the bls keys are unique
+	// identity := appState.State.GetIdentity(sender)
 	return nil
 }

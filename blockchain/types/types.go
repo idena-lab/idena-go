@@ -27,6 +27,7 @@ const (
 	BurnTx               uint16 = 0xC
 	ChangeProfileTx      uint16 = 0xD
 	DeleteFlipTx         uint16 = 0xE
+	BlsKeysTx            uint16 = 0xF
 )
 
 const (
@@ -47,6 +48,7 @@ const (
 	Snapshot
 	OfflinePropose
 	OfflineCommit
+	RelayUpdate
 )
 
 var CeremonialTxs map[uint16]struct{}
@@ -57,6 +59,7 @@ func init() {
 		SubmitShortAnswersTx: {},
 		SubmitLongAnswersTx:  {},
 		EvidenceTx:           {},
+		BlsKeysTx:            {},
 	}
 }
 

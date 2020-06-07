@@ -9,6 +9,7 @@ import (
 	"github.com/idena-network/idena-go/common"
 	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/crypto"
+	"github.com/idena-network/idena-go/crypto/bls"
 	"github.com/idena-network/idena-go/log"
 	"math/rand"
 	"sort"
@@ -24,6 +25,8 @@ type ValidatorsCache struct {
 	god              common.Address
 	mutex            sync.Mutex
 	height           uint64
+	blsKeys          []*bls.PubKey2
+	blsIndexes       map[common.Address]uint32
 }
 
 func NewValidatorsCache(identityState *state.IdentityStateDB, godAddress common.Address) *ValidatorsCache {
@@ -40,7 +43,7 @@ func (v *ValidatorsCache) Load() {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	v.loadValidNodes()
+	v.loadValidNodes(true)
 }
 
 func (v *ValidatorsCache) GetOnlineValidators(seed types.Seed, round uint64, step uint8, limit int) mapset.Set {
@@ -90,6 +93,11 @@ func (v *ValidatorsCache) IsOnlineIdentity(addr common.Address) bool {
 	return v.onlineNodesSet.Contains(addr)
 }
 
+func (v *ValidatorsCache) HasBlsKey(addr common.Address) bool {
+	_, exist := v.blsIndexes[addr]
+	return exist
+}
+
 func (v *ValidatorsCache) GetAllOnlineValidators() mapset.Set {
 	return v.onlineNodesSet.Clone()
 }
@@ -99,18 +107,23 @@ func (v *ValidatorsCache) RefreshIfUpdated(godAddress common.Address, block *typ
 	defer v.mutex.Unlock()
 
 	if block.Header.Flags().HasFlag(types.IdentityUpdate) {
-		v.loadValidNodes()
+		v.loadValidNodes(block.Header.Flags().HasFlag(types.RelayUpdate))
 		v.log.Info("Validators updated", "total", v.nodesSet.Cardinality(), "online", v.onlineNodesSet.Cardinality())
 	}
 	v.god = godAddress
 	v.height = block.Height()
 }
 
-func (v *ValidatorsCache) loadValidNodes() {
+func (v *ValidatorsCache) loadValidNodes(withBls bool) {
 
 	var onlineNodes []common.Address
 	v.nodesSet.Clear()
 	v.onlineNodesSet.Clear()
+
+	blsMap := make(map[uint32]*bls.PubKey2)
+	if withBls {
+		v.blsIndexes = make(map[common.Address]uint32, len(blsMap))
+	}
 
 	v.identityState.IterateIdentities(func(key []byte, value []byte) bool {
 		if key == nil {
@@ -131,17 +144,36 @@ func (v *ValidatorsCache) loadValidNodes() {
 
 		v.nodesSet.Add(addr)
 
+		var err error
+		if withBls && data.Index > 0 {
+			v.blsIndexes[addr] = data.Index
+			if blsMap[data.Index-1], err = bls.NewPubKey2(data.Pk2); err != nil {
+				return false
+			}
+		}
+
 		return false
 	})
 
 	v.validOnlineNodes = sortValidNodes(onlineNodes)
 	v.height = v.identityState.Version()
+
+	if withBls {
+		v.blsKeys = make([]*bls.PubKey2, len(blsMap))
+		for i, k := range blsMap {
+			v.blsKeys[i] = k
+		}
+	}
 }
 
 func (v *ValidatorsCache) Clone() *ValidatorsCache {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
+	indexes := make(map[common.Address]uint32, len(v.blsIndexes))
+	for addr, i := range v.blsIndexes {
+		indexes[addr] = i
+	}
 	return &ValidatorsCache{
 		height:           v.height,
 		identityState:    v.identityState,
@@ -150,6 +182,8 @@ func (v *ValidatorsCache) Clone() *ValidatorsCache {
 		validOnlineNodes: append(v.validOnlineNodes[:0:0], v.validOnlineNodes...),
 		nodesSet:         v.nodesSet.Clone(),
 		onlineNodesSet:   v.onlineNodesSet.Clone(),
+		blsKeys:          append(v.blsKeys[:0:0], v.blsKeys...),
+		blsIndexes:       indexes,
 	}
 }
 

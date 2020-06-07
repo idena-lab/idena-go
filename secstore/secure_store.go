@@ -1,12 +1,14 @@
 package secstore
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/awnumar/memguard"
 	"github.com/idena-network/idena-go/blockchain/types"
 	"github.com/idena-network/idena-go/common"
 	"github.com/idena-network/idena-go/crypto"
+	"github.com/idena-network/idena-go/crypto/bls"
 	"github.com/idena-network/idena-go/crypto/ecies"
 	"github.com/idena-network/idena-go/crypto/vrf/p256"
 	"os"
@@ -53,6 +55,16 @@ func (s *SecStore) GetAddress() common.Address {
 func (s *SecStore) GetPubKey() []byte {
 	sec, _ := crypto.ToECDSA(s.buffer.Bytes())
 	return crypto.FromECDSAPub(&sec.PublicKey)
+}
+
+// blsSeedHash = keccak256("bls-256-for-eth-relay")
+// 0x4a2da48d3c8236407cb0ef9daf35c9579b5789df96555ce0dc338475c32fd6ee
+var blsSeedHash = []byte{74, 45, 164, 141, 60, 130, 54, 64, 124, 176, 239, 157, 175, 53, 201, 87, 155, 87, 137, 223, 150, 85, 92, 224, 220, 51, 132, 117, 195, 47, 214, 238}
+
+func (s *SecStore) GetBlsPriKey() *bls.PriKey {
+	sig := s.Sign(blsSeedHash)
+	k, _ := bls.GenerateFromSeed(bytes.NewReader(sig))
+	return k
 }
 
 func (s *SecStore) VrfEvaluate(data []byte) (index [32]byte, proof []byte) {

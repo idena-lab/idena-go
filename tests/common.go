@@ -29,7 +29,7 @@ func GetTypesTxWithAmount(nonce uint32, epoch uint16, key *ecdsa.PrivateKey, txT
 	to := &addr
 
 	if txType == types.EvidenceTx || txType == types.SubmitShortAnswersTx ||
-		txType == types.SubmitLongAnswersTx || txType == types.SubmitAnswersHashTx || txType == types.SubmitFlipTx {
+		txType == types.SubmitLongAnswersTx || txType == types.SubmitAnswersHashTx || txType == types.SubmitFlipTx || txType == types.BlsKeysTx {
 		to = nil
 	}
 

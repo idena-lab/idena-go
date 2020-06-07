@@ -4,6 +4,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/idena-network/idena-go/blockchain/types"
 	"github.com/idena-network/idena-go/crypto"
+	"github.com/idena-network/idena-go/crypto/bls"
 	"github.com/idena-network/idena-go/crypto/ecies"
 	models "github.com/idena-network/idena-go/protobuf"
 )
@@ -304,6 +305,60 @@ func ParseDeleteFlipAttachment(tx *types.Transaction) *DeleteFlipAttachment {
 		return nil
 	}
 	attachment := new(DeleteFlipAttachment)
+	if err := attachment.FromBytes(tx.Payload); err != nil {
+		return nil
+	}
+	return attachment
+}
+
+type BlsKeysAttachment struct {
+	Pk1 *bls.PubKey1
+	Pk2 *bls.PubKey2
+	Sig *bls.Signature
+}
+
+func (s *BlsKeysAttachment) ToBytes() ([]byte, error) {
+	protoAttachment := &models.ProtoBlsKeysAttachment{
+		Pk1: s.Pk1.Marshal(),
+		Pk2: s.Pk2.Marshal(),
+		Sig: s.Sig.Marshal(),
+	}
+	return proto.Marshal(protoAttachment)
+}
+
+func (s *BlsKeysAttachment) FromBytes(data []byte) error {
+	protoAttachment := new(models.ProtoBlsKeysAttachment)
+	var err error
+	if err = proto.Unmarshal(data, protoAttachment); err != nil {
+		return err
+	}
+	if s.Pk1, err = bls.NewPubKey1(protoAttachment.Pk1); err != nil {
+		return err
+	}
+	if s.Pk2, err = bls.NewPubKey2(protoAttachment.Pk2); err != nil {
+		return err
+	}
+	if s.Sig, err = bls.NewSignature(protoAttachment.Sig); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateBlsKeysAttachment(pk1 *bls.PubKey1, pk2 *bls.PubKey2, sig *bls.Signature) []byte {
+	attachment := &BlsKeysAttachment{
+		Pk1: pk1,
+		Pk2: pk2,
+		Sig: sig,
+	}
+	payload, _ := attachment.ToBytes()
+	return payload
+}
+
+func ParseBlsKeysAttachment(tx *types.Transaction) *BlsKeysAttachment {
+	if len(tx.Payload) == 0 {
+		return nil
+	}
+	attachment := new(BlsKeysAttachment)
 	if err := attachment.FromBytes(tx.Payload); err != nil {
 		return nil
 	}

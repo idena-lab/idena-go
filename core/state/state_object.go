@@ -232,6 +232,8 @@ type Identity struct {
 	Penalty              *big.Int
 	ValidationTxsBits    byte
 	LastValidationStatus ValidationStatusFlag
+	BlsPk1               []byte `rlp:"nil"`
+	BlsPk2               []byte `rlp:"nil"`
 }
 
 type TxAddr struct {
@@ -255,6 +257,8 @@ func (i *Identity) ToBytes() ([]byte, error) {
 		ValidationBits:   uint32(i.ValidationTxsBits),
 		ValidationStatus: uint32(i.LastValidationStatus),
 		ProfileHash:      i.ProfileHash,
+		BlsPk1:           i.BlsPk1,
+		BlsPk2:           i.BlsPk2,
 	}
 	for idx := range i.Flips {
 		protoIdentity.Flips = append(protoIdentity.Flips, &models.ProtoStateIdentity_Flip{
@@ -296,6 +300,8 @@ func (i *Identity) FromBytes(data []byte) error {
 	i.ValidationTxsBits = byte(protoIdentity.ValidationBits)
 	i.LastValidationStatus = ValidationStatusFlag(protoIdentity.ValidationStatus)
 	i.ProfileHash = protoIdentity.ProfileHash
+	i.BlsPk1 = protoIdentity.BlsPk1
+	i.BlsPk2 = protoIdentity.BlsPk2
 
 	for idx := range protoIdentity.Flips {
 		i.Flips = append(i.Flips, IdentityFlip{
@@ -775,6 +781,16 @@ func (s *stateIdentity) ResetValidationTxBits() {
 
 func (s *stateIdentity) SetValidationStatus(status ValidationStatusFlag) {
 	s.data.LastValidationStatus = status
+	s.touch()
+}
+
+func (s *stateIdentity) SetBlsPk1(pk1 []byte) {
+	s.data.BlsPk1 = pk1
+	s.touch()
+}
+
+func (s *stateIdentity) SetBlsPk2(pk2 []byte) {
+	s.data.BlsPk2 = pk2
 	s.touch()
 }
 

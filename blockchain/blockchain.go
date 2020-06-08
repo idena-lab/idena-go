@@ -889,7 +889,9 @@ func (chain *Blockchain) ApplyTxOnState(appState *appstate.AppState, tx *types.T
 	case types.SubmitAnswersHashTx, types.SubmitShortAnswersTx, types.EvidenceTx, types.SubmitLongAnswersTx:
 		stateDB.SetValidationTxBit(sender, tx.Type)
 	case types.BlsKeysTx:
-		// todo: save to stateDB or somewhere
+		attachment := attachments.ParseBlsKeysAttachment(tx)
+		stateDB.SetBlsPk1(sender, attachment.Pk1.Marshal())
+		stateDB.SetBlsPk2(sender, attachment.Pk2.Marshal())
 	}
 
 	stateDB.SetNonce(sender, tx.AccountNonce)

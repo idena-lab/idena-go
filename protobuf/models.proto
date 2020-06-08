@@ -307,9 +307,9 @@ message ProtoDeleteFlipAttachment {
 }
 
 message ProtoBlsKeysAttachment {
-		bytes pk1 = 1;
-		bytes pk2 = 2;
-		bytes sig = 3;
+    bytes pk1 = 1;
+    bytes pk2 = 2;
+    bytes sig = 3;
 }
 
 // State
@@ -349,6 +349,8 @@ message ProtoStateIdentity {
     uint32 validationBits = 15;
     uint32 validationStatus = 16;
     bytes profileHash = 17;
+    bytes blsPk1 = 18;
+    bytes blsPk2 = 19;
 }
 
 message ProtoStateGlobal {
@@ -435,15 +437,17 @@ message ProtoPredefinedState {
         uint32 validationBits = 16;
         uint32 validationStatus = 17;
         bytes profileHash = 18;
+        bytes blsPk1 = 19;
+        bytes blsPk2 = 20;
     }
 
     message ApprovedIdentity {
         bytes address = 1;
         bool approved = 2;
         bool online = 3;
-				uint32 index = 4;
-				bytes pk1 = 5;
-				bytes pk2 = 6;
+        uint32 index = 4;
+        bytes pk1 = 5;
+        bytes pk2 = 6;
     }
 
     uint64 block = 1;

@@ -505,6 +505,14 @@ func (s *StateDB) ResetBlocksCntWithoutCeremonialTxs() {
 	s.GetOrNewGlobalObject().ResetBlocksCntWithoutCeremonialTxs()
 }
 
+func (s *StateDB) SetBlsPk1(address common.Address, pk []byte) {
+	s.GetOrNewIdentityObject(address).SetBlsPk1(pk)
+}
+
+func (s *StateDB) SetBlsPk2(address common.Address, pk []byte) {
+	s.GetOrNewIdentityObject(address).SetBlsPk2(pk)
+}
+
 //
 // Setting, updating & deleting state object methods
 //
@@ -1229,6 +1237,8 @@ func (s *StateDB) SetPredefinedIdentities(state *models.ProtoPredefinedState) {
 		stateObject.data.Penalty = common.BigIntOrNil(identity.Penalty)
 		stateObject.data.ValidationTxsBits = byte(identity.ValidationBits)
 		stateObject.data.LastValidationStatus = ValidationStatusFlag(identity.ValidationStatus)
+		stateObject.data.BlsPk1 = identity.BlsPk1
+		stateObject.data.BlsPk2 = identity.BlsPk2
 
 		if identity.Inviter != nil {
 			stateObject.data.Inviter = &TxAddr{

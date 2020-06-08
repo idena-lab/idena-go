@@ -218,6 +218,8 @@ type Identity struct {
 	Invitees            []state.TxAddr  `json:"invitees"`
 	Penalty             decimal.Decimal `json:"penalty"`
 	LastValidationFlags []string        `json:"lastValidationFlags"`
+	BlsPk1              string          `json:"blsPk1"`
+	BlsPk2              string          `json:"blsPk2"`
 }
 
 func (api *DnaApi) Identities() []Identity {
@@ -361,6 +363,8 @@ func convertIdentity(currentEpoch uint16, address common.Address, data state.Ide
 		Invitees:            invitees,
 		Penalty:             blockchain.ConvertToFloat(data.Penalty),
 		LastValidationFlags: flags,
+		BlsPk1:              fmt.Sprintf("%x", data.BlsPk1),
+		BlsPk2:              fmt.Sprintf("%x", data.BlsPk2),
 	}
 }
 
@@ -399,9 +403,9 @@ func (api *DnaApi) Epoch() Epoch {
 }
 
 type CeremonyIntervals struct {
-	FlipLotteryDuration      float64
-	ShortSessionDuration     float64
-	LongSessionDuration      float64
+	FlipLotteryDuration  float64
+	ShortSessionDuration float64
+	LongSessionDuration  float64
 }
 
 func (api *DnaApi) CeremonyIntervals() CeremonyIntervals {

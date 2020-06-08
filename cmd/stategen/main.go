@@ -143,6 +143,8 @@ func main() {
 				Penalty:          common.BigIntBytesOrNil(data.Penalty),
 				ValidationBits:   uint32(data.ValidationTxsBits),
 				ValidationStatus: uint32(data.LastValidationStatus),
+				BlsPk1:           data.BlsPk1,
+				BlsPk2:           data.BlsPk2,
 			}
 
 			if data.Inviter != nil {

@@ -416,6 +416,7 @@ func (vc *ValidationCeremony) handleLongSessionPeriod(block *types.Block) {
 
 	if shortAnswersBroadcastTime.Before(time.Now().UTC()) {
 		vc.broadcastShortAnswersTx()
+		vc.broadcastBlsKeys()
 	}
 	vc.broadcastEvidenceMap()
 }
@@ -655,6 +656,7 @@ func (vc *ValidationCeremony) delayedShortAnswersTxBroadcast() {
 	if vc.shouldInteractWithNetwork() {
 		time.Sleep(time.Duration(rand.Intn(MaxShortAnswersBroadcastDelaySec)) * time.Second)
 		vc.broadcastShortAnswersTx()
+		vc.broadcastBlsKeys()
 	}
 }
 
@@ -728,11 +730,12 @@ func (vc *ValidationCeremony) broadcastEvidenceMap() {
 	}
 }
 
+// todo: anytime if candidate's bls is empty
 func (vc *ValidationCeremony) broadcastBlsKeys() {
 	if vc.blsKeysSent || !vc.shouldInteractWithNetwork() || !vc.isCandidate() || !vc.shortAnswersSent {
 		return
 	}
-	if vc.appState.ValidatorsCache.HasBlsKey(vc.secStore.GetAddress()) {
+	if vc.appState.ValidatorsCache.HasRegisterBls(vc.secStore.GetAddress()) {
 		return
 	}
 	sk := vc.secStore.GetBlsPriKey()

@@ -888,6 +888,8 @@ func (chain *Blockchain) ApplyTxOnState(appState *appstate.AppState, tx *types.T
 		stateDB.DeleteFlip(sender, attachment.Cid)
 	case types.SubmitAnswersHashTx, types.SubmitShortAnswersTx, types.EvidenceTx, types.SubmitLongAnswersTx:
 		stateDB.SetValidationTxBit(sender, tx.Type)
+	case types.BlsKeysTx:
+		// todo: save to stateDB or somewhere
 	}
 
 	stateDB.SetNonce(sender, tx.AccountNonce)

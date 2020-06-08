@@ -78,7 +78,7 @@ func TestSign(t *testing.T) {
 		assert.Equal(t, pair[2], BigToHex32(ps[1]), string(m))
 
 		// verify signature
-		s, err = NewSignature(ps[0], ps[1])
+		s, err = NewSignatureFromBigInt(ps[0], ps[1])
 		assert.NoError(t, err)
 
 		// invalid msg

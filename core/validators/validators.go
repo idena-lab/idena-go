@@ -3,6 +3,7 @@ package validators
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/deckarep/golang-set"
 	"github.com/idena-network/idena-go/blockchain/types"
@@ -27,6 +28,7 @@ type ValidatorsCache struct {
 	height           uint64
 	blsKeys          []*bls.PubKey2
 	blsIndexes       map[common.Address]uint32
+	blsSet           mapset.Set
 }
 
 func NewValidatorsCache(identityState *state.IdentityStateDB, godAddress common.Address) *ValidatorsCache {
@@ -36,6 +38,7 @@ func NewValidatorsCache(identityState *state.IdentityStateDB, godAddress common.
 		onlineNodesSet: mapset.NewSet(),
 		log:            log.New(),
 		god:            godAddress,
+		blsSet:         mapset.NewSet(),
 	}
 }
 
@@ -93,9 +96,13 @@ func (v *ValidatorsCache) IsOnlineIdentity(addr common.Address) bool {
 	return v.onlineNodesSet.Contains(addr)
 }
 
-func (v *ValidatorsCache) HasBlsKey(addr common.Address) bool {
+func (v *ValidatorsCache) HasRegisterBls(addr common.Address) bool {
 	_, exist := v.blsIndexes[addr]
 	return exist
+}
+
+func (v *ValidatorsCache) IsBlsKeyExist(pk1 *bls.PubKey1) bool {
+	return v.blsSet.Contains(hex.EncodeToString(pk1.Marshal()))
 }
 
 func (v *ValidatorsCache) GetAllOnlineValidators() mapset.Set {
@@ -122,6 +129,7 @@ func (v *ValidatorsCache) loadValidNodes(withBls bool) {
 
 	blsMap := make(map[uint32]*bls.PubKey2)
 	if withBls {
+		v.blsSet.Clear()
 		v.blsIndexes = make(map[common.Address]uint32, len(blsMap))
 	}
 
@@ -147,6 +155,7 @@ func (v *ValidatorsCache) loadValidNodes(withBls bool) {
 		var err error
 		if withBls && data.Index > 0 {
 			v.blsIndexes[addr] = data.Index
+			v.blsSet.Add(hex.EncodeToString(data.Pk1))
 			if blsMap[data.Index-1], err = bls.NewPubKey2(data.Pk2); err != nil {
 				return false
 			}
@@ -184,6 +193,7 @@ func (v *ValidatorsCache) Clone() *ValidatorsCache {
 		onlineNodesSet:   v.onlineNodesSet.Clone(),
 		blsKeys:          append(v.blsKeys[:0:0], v.blsKeys...),
 		blsIndexes:       indexes,
+		blsSet:           v.blsSet.Clone(),
 	}
 }
 

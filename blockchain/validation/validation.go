@@ -691,16 +691,14 @@ func validateBlsKeysTx(appState *appstate.AppState, tx *types.Transaction, txTyp
 	if err := validateTotalCost(sender, appState, tx, txType); err != nil {
 		return err
 	}
-	// todo: maybe not necessary
-	if appState.State.ValidationPeriod() < state.LongSessionPeriod && txType == InBlockTx {
-		return EarlyTx
-	}
+	// if appState.State.ValidationPeriod() < state.LongSessionPeriod && txType == InBlockTx {
+	// 	return EarlyTx
+	// }
+	// if err := validateCeremonyTx(sender, appState, tx); err != nil {
+	// 	return err
+	// }
 	if !state.IsCeremonyCandidate(appState.State.GetIdentity(sender)) {
 		return NotCandidate
-	}
-	// todo: maybe necessary
-	if err := validateCeremonyTx(sender, appState, tx); err != nil {
-		return err
 	}
 
 	attachment := attachments.ParseBlsKeysAttachment(tx)
@@ -717,10 +715,11 @@ func validateBlsKeysTx(appState *appstate.AppState, tx *types.Transaction, txTyp
 		return InvalidBlsKey
 	}
 
-	if appState.ValidatorsCache.HasBlsKey(sender) {
+	if appState.ValidatorsCache.HasRegisterBls(sender) {
 		return DuplicatedTx
 	}
-	// todo: make sure the bls keys are unique
-	// identity := appState.State.GetIdentity(sender)
+	if appState.ValidatorsCache.IsBlsKeyExist(attachment.Pk1) {
+		return DuplicatedBlsKey
+	}
 	return nil
 }

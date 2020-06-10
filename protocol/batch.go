@@ -19,6 +19,7 @@ type block struct {
 	Header       *types.Header
 	Cert         *types.BlockCert         `rlp:"nil"`
 	IdentityDiff *state.IdentityStateDiff `rlp:"nil"`
+	RelayState   *state.RelayState        `rlp:"nil"`
 }
 
 type blockPeer struct {
@@ -46,6 +47,9 @@ func (r *blockRange) ToBytes() ([]byte, error) {
 		if item.IdentityDiff != nil {
 			b.Diff = item.IdentityDiff.ToProto()
 		}
+		if item.RelayState != nil {
+			b.Relay = item.RelayState.ToProto()
+		}
 		protoObj.Blocks = append(protoObj.Blocks, b)
 	}
 	return proto.Marshal(protoObj)
@@ -68,6 +72,9 @@ func (r *blockRange) FromBytes(data []byte) error {
 		}
 		if item.Diff != nil {
 			b.IdentityDiff = new(state.IdentityStateDiff).FromProto(item.Diff)
+		}
+		if item.Relay != nil {
+			b.RelayState = new(state.RelayState).FromProto(item.Relay)
 		}
 		r.Blocks = append(r.Blocks, b)
 	}

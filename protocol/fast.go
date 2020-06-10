@@ -113,6 +113,10 @@ func (fs *fastSync) applyDeferredBlocks() (uint64, error) {
 			fs.pm.BanPeer(b.peerId, err)
 			return b.Header.Height(), err
 		}
+		if err := fs.validateRelayState(b); err != nil {
+			fs.pm.BanPeer(b.peerId, err)
+			return b.Header.Height(), err
+		}
 		if !b.IdentityDiff.Empty() {
 			fs.stateDb.CommitTree(int64(b.Header.Height()))
 		}
@@ -126,6 +130,7 @@ func (fs *fastSync) applyDeferredBlocks() (uint64, error) {
 			fs.loadValidators()
 		}
 		fs.chain.WriteIdentityStateDiff(b.Header.Height(), b.IdentityDiff)
+		fs.chain.WriteRelayState(b.Header.Height(), b.RelayState)
 		if !b.Cert.Empty() {
 			fs.chain.WriteCertificate(b.Header.Hash(), b.Cert, true)
 		}
@@ -224,6 +229,11 @@ func (fs *fastSync) validateIdentityState(block blockPeer) error {
 		fs.stateDb.Reset()
 		return errors.New("identity root is invalid")
 	}
+	return nil
+}
+
+func (fs *fastSync) validateRelayState(block blockPeer) error {
+	// not necessary for now
 	return nil
 }
 

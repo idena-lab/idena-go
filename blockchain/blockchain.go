@@ -242,7 +242,7 @@ func (chain *Blockchain) GenerateGenesis(network types.Network) (*types.Block, e
 		},
 	}, Body: &types.Body{}}
 
-	if err := chain.insertBlock(block, new(state.IdentityStateDiff)); err != nil {
+	if err := chain.insertBlock(block, new(state.IdentityStateDiff), new(state.RelayState)); err != nil {
 		return nil, err
 	}
 	chain.genesis = block.Header
@@ -289,11 +289,11 @@ func (chain *Blockchain) AddBlock(block *types.Block, checkState *appstate.AppSt
 	}
 	statsCollector.EnableCollecting()
 	defer statsCollector.CompleteCollecting()
-	diff, err := chain.processBlock(block, statsCollector)
+	diff, rs, err := chain.processBlock(block, statsCollector)
 	if err != nil {
 		return err
 	}
-	if err := chain.insertBlock(block, diff); err != nil {
+	if err := chain.insertBlock(block, diff, rs); err != nil {
 		return err
 	}
 	if !chain.isSyncing {
@@ -308,30 +308,30 @@ func (chain *Blockchain) AddBlock(block *types.Block, checkState *appstate.AppSt
 }
 
 func (chain *Blockchain) processBlock(block *types.Block,
-	statsCollector collector.StatsCollector) (diff *state.IdentityStateDiff, err error) {
+	statsCollector collector.StatsCollector) (diff *state.IdentityStateDiff, rs *state.RelayState, err error) {
 
 	var root, identityRoot common.Hash
 	if block.IsEmpty() {
-		root, identityRoot, diff = chain.applyEmptyBlockOnState(chain.appState, block, statsCollector)
+		root, identityRoot, diff, rs = chain.applyEmptyBlockOnState(chain.appState, block, statsCollector)
 	} else {
-		if root, identityRoot, diff, err = chain.applyBlockAndTxsOnState(chain.appState, block, chain.Head, statsCollector); err != nil {
+		if root, identityRoot, diff, rs, err = chain.applyBlockAndTxsOnState(chain.appState, block, chain.Head, statsCollector); err != nil {
 			chain.appState.Reset()
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if root != block.Root() || identityRoot != block.IdentityRoot() {
 		chain.appState.Reset()
-		return nil, errors.Errorf("Process block. Invalid block roots. Expected=%x & %x, actual=%x & %x", root, identityRoot, block.Root(), block.IdentityRoot())
+		return nil, nil, errors.Errorf("Process block. Invalid block roots. Expected=%x & %x, actual=%x & %x", root, identityRoot, block.Root(), block.IdentityRoot())
 	}
 
 	if err := chain.appState.Commit(block); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	chain.log.Trace("Applied block", "root", fmt.Sprintf("0x%x", block.Root()), "height", block.Height())
 
-	return diff, nil
+	return diff, rs, nil
 }
 
 func (chain *Blockchain) applyBlockAndTxsOnState(
@@ -339,17 +339,17 @@ func (chain *Blockchain) applyBlockAndTxsOnState(
 	block *types.Block,
 	prevBlock *types.Header,
 	statsCollector collector.StatsCollector,
-) (root common.Hash, identityRoot common.Hash, diff *state.IdentityStateDiff, err error) {
+) (root common.Hash, identityRoot common.Hash, diff *state.IdentityStateDiff, rs *state.RelayState, err error) {
 	var totalFee, totalTips *big.Int
 	if totalFee, totalTips, err = chain.processTxs(appState, block, statsCollector); err != nil {
 		return
 	}
 
-	root, identityRoot, diff = chain.applyBlockOnState(appState, block, prevBlock, totalFee, totalTips, statsCollector)
-	return root, identityRoot, diff, nil
+	root, identityRoot, diff, rs = chain.applyBlockOnState(appState, block, prevBlock, totalFee, totalTips, statsCollector)
+	return root, identityRoot, diff, rs, nil
 }
 
-func (chain *Blockchain) applyBlockOnState(appState *appstate.AppState, block *types.Block, prevBlock *types.Header, totalFee, totalTips *big.Int, statsCollector collector.StatsCollector) (root common.Hash, identityRoot common.Hash, diff *state.IdentityStateDiff) {
+func (chain *Blockchain) applyBlockOnState(appState *appstate.AppState, block *types.Block, prevBlock *types.Header, totalFee, totalTips *big.Int, statsCollector collector.StatsCollector) (root common.Hash, identityRoot common.Hash, diff *state.IdentityStateDiff, rs *state.RelayState) {
 
 	chain.applyNewEpoch(appState, block, statsCollector)
 	chain.applyBlockRewards(totalFee, totalTips, appState, block, prevBlock, statsCollector)
@@ -357,24 +357,26 @@ func (chain *Blockchain) applyBlockOnState(appState *appstate.AppState, block *t
 	chain.applyGlobalParams(appState, block, statsCollector)
 	chain.applyNextBlockFee(appState, block)
 	chain.applyVrfProposerThreshold(appState, block)
+	rs = chain.updateRelayState(appState, block)
 	diff = appState.Precommit()
 
-	return appState.State.Root(), appState.IdentityState.Root(), diff
+	return appState.State.Root(), appState.IdentityState.Root(), diff, rs
 }
 
 func (chain *Blockchain) applyEmptyBlockOnState(
 	appState *appstate.AppState,
 	block *types.Block,
 	statsCollector collector.StatsCollector,
-) (root common.Hash, identityRoot common.Hash, diff *state.IdentityStateDiff) {
+) (root common.Hash, identityRoot common.Hash, diff *state.IdentityStateDiff, rs *state.RelayState) {
 
 	chain.applyNewEpoch(appState, block, statsCollector)
 	chain.applyStatusSwitch(appState, block)
 	chain.applyGlobalParams(appState, block, statsCollector)
 	chain.applyVrfProposerThreshold(appState, block)
+	rs = chain.updateRelayState(appState, block)
 	diff = appState.Precommit()
 
-	return appState.State.Root(), appState.IdentityState.Root(), diff
+	return appState.State.Root(), appState.IdentityState.Root(), diff, rs
 }
 
 func (chain *Blockchain) applyBlockRewards(totalFee *big.Int, totalTips *big.Int, appState *appstate.AppState,
@@ -981,6 +983,12 @@ func (chain *Blockchain) applyStatusSwitch(appState *appstate.AppState, block *t
 	appState.State.ClearStatusSwitchAddresses()
 }
 
+func (chain *Blockchain) updateRelayState(appState *appstate.AppState, block *types.Block) *state.RelayState {
+	// todo: do update relay state
+	// relay = new(state.RelayState)
+	return nil
+}
+
 func (chain *Blockchain) getTxCost(feePerByte *big.Int, tx *types.Transaction) *big.Int {
 	return fee.CalculateCost(chain.appState.ValidatorsCache.NetworkSize(), feePerByte, tx)
 }
@@ -1050,7 +1058,7 @@ func (chain *Blockchain) ProposeBlock(proof []byte) *types.BlockProposal {
 	}
 	block.Header.ProposedHeader.Flags |= chain.calculateFlags(checkState, block)
 
-	block.Header.ProposedHeader.Root, block.Header.ProposedHeader.IdentityRoot, _ = chain.applyBlockOnState(checkState, block, chain.Head, totalFee, totalTips, nil)
+	block.Header.ProposedHeader.Root, block.Header.ProposedHeader.IdentityRoot, _, _ = chain.applyBlockOnState(checkState, block, chain.Head, totalFee, totalTips, nil)
 
 	proposal := &types.BlockProposal{Block: block, Proof: proof}
 	hash := crypto.SignatureHash(proposal)
@@ -1160,13 +1168,14 @@ func (chain *Blockchain) insertHeader(header *types.Header) {
 	chain.repo.WriteCanonicalHash(header.Height(), header.Hash())
 }
 
-func (chain *Blockchain) insertBlock(block *types.Block, diff *state.IdentityStateDiff) error {
+func (chain *Blockchain) insertBlock(block *types.Block, diff *state.IdentityStateDiff, rs *state.RelayState) error {
 	_, err := chain.ipfs.Add(block.Body.ToBytes(), chain.ipfs.ShouldPin(ipfs.Block))
 	if err != nil {
 		return errors.Wrap(BlockInsertionErr, err.Error())
 	}
 	chain.insertHeader(block.Header)
 	chain.WriteIdentityStateDiff(block.Height(), diff)
+	chain.WriteRelayState(block.Height(), rs)
 	chain.WriteTxIndex(block.Hash(), block.Body.Transactions)
 	chain.indexer.HandleBlockTransactions(block.Header, block.Body.Transactions)
 	chain.setCurrentHead(block.Header)
@@ -1249,7 +1258,7 @@ func (chain *Blockchain) validateBlock(checkState *appstate.AppState, block *typ
 		return errors.Errorf("flags are invalid, expected=%v, actual=%v", expected, persistentFlags)
 	}
 
-	if root, identityRoot, _ := chain.applyBlockOnState(checkState, block, prevBlock, totalFee, totalTips, nil); root != block.Root() || identityRoot != block.IdentityRoot() {
+	if root, identityRoot, _, _ := chain.applyBlockOnState(checkState, block, prevBlock, totalFee, totalTips, nil); root != block.Root() || identityRoot != block.IdentityRoot() {
 		return errors.Errorf("invalid block roots. Expected=%x & %x, actual=%x & %x", root, identityRoot, block.Root(), block.IdentityRoot())
 	}
 
@@ -1684,6 +1693,16 @@ func (chain *Blockchain) GetIdentityDiff(height uint64) *state.IdentityStateDiff
 	return diff
 }
 
+func (chain *Blockchain) GetRelayState(height uint64) *state.RelayState {
+	data := chain.repo.ReadRelayState(height)
+	if data == nil {
+		return nil
+	}
+	rs := new(state.RelayState)
+	rs.FromBytes(data)
+	return rs
+}
+
 func (chain *Blockchain) ReadSnapshotManifest() *snapshot.Manifest {
 	cid, root, height, _ := chain.repo.LastSnapshotManifest()
 	if cid == nil {
@@ -1704,6 +1723,13 @@ func (chain *Blockchain) WriteIdentityStateDiff(height uint64, diff *state.Ident
 	if !diff.Empty() {
 		b, _ := diff.ToBytes()
 		chain.repo.WriteIdentityStateDiff(height, b)
+	}
+}
+
+func (chain *Blockchain) WriteRelayState(height uint64, rs *state.RelayState) {
+	if !rs.Empty() {
+		b, _ := rs.ToBytes()
+		chain.repo.WriteRelayState(height, b)
 	}
 }
 

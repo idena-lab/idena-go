@@ -132,6 +132,13 @@ message ProtoIdentityStateDiff {
     repeated IdentityStateDiffValue values = 1;
 }
 
+message ProtoRelayState {
+    bytes root = 1;
+    bytes signature = 2;
+    bytes signFlags = 3;
+    uint32 signerCount = 4;
+}
+
 message ProtoSnapshotBlock {
     message KeyValue {
         bytes key = 1;
@@ -146,6 +153,7 @@ message ProtoGossipBlockRange {
         ProtoBlockHeader header = 1;
         ProtoBlockCert cert = 2;
         ProtoIdentityStateDiff diff = 3;
+        ProtoRelayState relay = 4;
     }
     uint32 batchId = 1;
     repeated Block blocks = 2;

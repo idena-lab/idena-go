@@ -487,6 +487,47 @@ func (diff *IdentityStateDiff) FromBytes(data []byte) error {
 	return nil
 }
 
+type RelayState struct {
+	Root        []byte
+	Signature   []byte
+	SignFlags   []byte
+	SignerCount uint32
+}
+
+func (relay *RelayState) Empty() bool {
+	return relay == nil || len(relay.Root) == 0
+}
+
+func (relay *RelayState) ToProto() *models.ProtoRelayState {
+	pr := new(models.ProtoRelayState)
+	pr.Root = relay.Root
+	pr.Signature = relay.Signature
+	pr.SignFlags = relay.SignFlags
+	pr.SignerCount = relay.SignerCount
+	return pr
+}
+
+func (relay *RelayState) ToBytes() ([]byte, error) {
+	return proto.Marshal(relay.ToProto())
+}
+
+func (relay *RelayState) FromProto(pr *models.ProtoRelayState) *RelayState {
+	relay.Root = pr.Root
+	relay.Signature = pr.Signature
+	relay.SignFlags = pr.SignFlags
+	relay.SignerCount = pr.SignerCount
+	return relay
+}
+
+func (relay *RelayState) FromBytes(data []byte) error {
+	pr := new(models.ProtoRelayState)
+	if err := proto.Unmarshal(data, pr); err != nil {
+		return err
+	}
+	relay.FromProto(pr)
+	return nil
+}
+
 func identityStatePrefix(height uint64) []byte {
 	return []byte("aid-" + strconv.FormatUint(height, 16))
 }

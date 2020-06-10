@@ -80,6 +80,10 @@ func identityStateDiffKey(height uint64) []byte {
 	return append(identityStateDiffPrefix, encodeUint64Number(height)...)
 }
 
+func relayStateKey(height uint64) []byte {
+	return append(relayStatePrefix, encodeUint64Number(height)...)
+}
+
 func (r *Repo) ReadBlockHeader(hash common.Hash) *types.Header {
 	data, err := r.db.Get(headerKey(hash))
 	assertNoError(err)
@@ -293,6 +297,16 @@ func (r *Repo) WriteIdentityStateDiff(height uint64, diff []byte) {
 
 func (r *Repo) ReadIdentityStateDiff(height uint64) []byte {
 	data, err := r.db.Get(identityStateDiffKey(height))
+	assertNoError(err)
+	return data
+}
+
+func (r *Repo) WriteRelayState(height uint64, state []byte) {
+	r.db.Set(relayStateKey(height), state)
+}
+
+func (r *Repo) ReadRelayState(height uint64) []byte {
+	data, err := r.db.Get(relayStateKey(height))
 	assertNoError(err)
 	return data
 }

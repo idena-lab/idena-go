@@ -502,6 +502,7 @@ func (h *IdenaGossipHandler) provideBlocks(p *protoPeer, batchId uint32, from ui
 				Header:       b,
 				Cert:         h.bcn.GetCertificate(b.Hash()),
 				IdentityDiff: h.bcn.GetIdentityDiff(b.Height()),
+				RelayState:   h.bcn.GetRelayState(b.Height()),
 			})
 		} else {
 			p.log.Warn("Do not have requested block", "height", i)

@@ -31,4 +31,7 @@ var (
 	preliminaryHeadKey = []byte("preliminary-head")
 
 	activityMonitorKey = []byte("activity")
+
+	// idena ethereum relay state update
+	relayStatePrefix = []byte("relay")
 )

@@ -352,6 +352,14 @@ func (s *IdentityStateDB) IsOnline(addr common.Address) bool {
 	return false
 }
 
+func (s *IdentityStateDB) GetIndex(addr common.Address) uint32 {
+	stateObject := s.getStateIdentity(addr)
+	if stateObject != nil {
+		return stateObject.data.Index
+	}
+	return 0
+}
+
 func (s *IdentityStateDB) SetOnline(addr common.Address, online bool) {
 	s.GetOrNewIdentityObject(addr).SetOnline(online)
 }
@@ -530,10 +538,17 @@ func (diff *IdentityStateDiff) FromBytes(data []byte) error {
 }
 
 type RelayState struct {
-	Root        []byte
-	Signature   []byte
-	SignFlags   []byte
-	SignerCount uint32
+	Root       []byte
+	Signature  []byte
+	Population uint32
+	SignFlags  *common.Bitmap
+}
+
+func (relay *RelayState) SignRate() float64 {
+	if relay.SignFlags == nil {
+		return 0
+	}
+	return float64(len(relay.SignFlags.ToArray())) / float64(relay.Population)
 }
 
 func (relay *RelayState) Empty() bool {
@@ -544,8 +559,12 @@ func (relay *RelayState) ToProto() *models.ProtoRelayState {
 	pr := new(models.ProtoRelayState)
 	pr.Root = relay.Root
 	pr.Signature = relay.Signature
-	pr.SignFlags = relay.SignFlags
-	pr.SignerCount = relay.SignerCount
+	pr.Population = relay.Population
+	if relay.SignFlags == nil {
+		pr.SignFlags = []byte{}
+	} else {
+		pr.SignFlags = relay.SignFlags.Bytes()
+	}
 	return pr
 }
 
@@ -556,8 +575,13 @@ func (relay *RelayState) ToBytes() ([]byte, error) {
 func (relay *RelayState) FromProto(pr *models.ProtoRelayState) *RelayState {
 	relay.Root = pr.Root
 	relay.Signature = pr.Signature
-	relay.SignFlags = pr.SignFlags
-	relay.SignerCount = pr.SignerCount
+	relay.Population = pr.Population
+	if len(pr.SignFlags) == 0 {
+		relay.SignFlags = nil
+	} else {
+		relay.SignFlags = common.NewBitmap(pr.Population)
+		relay.SignFlags.Read(pr.SignFlags)
+	}
 	return relay
 }
 

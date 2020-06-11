@@ -7,12 +7,36 @@ import (
 	"github.com/idena-network/idena-go/crypto"
 	"math/big"
 	"sort"
+	"sync"
 )
 
 const (
 	// todo: to be confirmed
-	ActiveHeight = 4444444
+	ActiveHeight      = 4444444
+	MultiSigThreshold = 2 / 3
+	FreezeThreshold   = 3 / 4
 )
+
+type Cache struct {
+	identityState *state.IdentityStateDB
+	collecting    []uint64
+	mutex         sync.Mutex
+}
+
+func NewCache(identityState *state.IdentityStateDB) *Cache {
+	return &Cache{
+		identityState: identityState,
+	}
+}
+
+func (c *Cache) CollectSig(height uint64, rs *state.RelayState) {
+	if rs.Empty() {
+		return
+	}
+	if rs.SignRate() <= MultiSigThreshold {
+		c.collecting = append(c.collecting, height)
+	}
+}
 
 // update identity indexes for relay
 func UpdateRelayState(height uint64, s *state.IdentityStateDB, prev *state.RelayState) *state.RelayState {
@@ -52,8 +76,11 @@ func UpdateRelayState(height uint64, s *state.IdentityStateDB, prev *state.Relay
 	for _, idx := range rmIds {
 		rmFlags.SetIndex(int(idx-1), true)
 	}
+	// build rs
 	rs := new(state.RelayState)
 	rs.Root = calcRoot(height, prev.Root, rmFlags, addSorted, addIds)
+	rs.Population = uint32(oldPop + len(addIds) - len(rmIds))
+	rs.SignFlags = common.NewBitmap(rs.Population)
 	return rs
 }
 

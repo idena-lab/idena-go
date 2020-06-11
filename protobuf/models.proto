@@ -135,8 +135,8 @@ message ProtoIdentityStateDiff {
 message ProtoRelayState {
     bytes root = 1;
     bytes signature = 2;
-    bytes signFlags = 3;
-    uint32 signerCount = 4;
+    uint32 population = 3;
+    bytes signFlags = 4;
 }
 
 message ProtoSnapshotBlock {

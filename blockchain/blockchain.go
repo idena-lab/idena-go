@@ -991,7 +991,12 @@ func (chain *Blockchain) updateRelayState(appState *appstate.AppState, block *ty
 	if !block.Header.Flags().HasFlag(types.RelayUpdate) {
 		return prev
 	}
+	myOldIdx := appState.IdentityState.GetIndex(chain.coinBaseAddress)
 	rs := relay.UpdateRelayState(block.Height(), appState.IdentityState, prev)
+	if myOldIdx > 0 {
+		rs.Signature = chain.secStore.GetBlsPriKey().Sign(rs.Root).Marshal()
+		rs.SignFlags.Add(myOldIdx)
+	}
 	return rs
 }
 
@@ -1735,10 +1740,12 @@ func (chain *Blockchain) WriteIdentityStateDiff(height uint64, diff *state.Ident
 }
 
 func (chain *Blockchain) WriteRelayState(height uint64, rs *state.RelayState) {
-	if !rs.Empty() {
-		b, _ := rs.ToBytes()
-		chain.repo.WriteRelayState(height, b)
+	if rs.Empty() {
+		return
 	}
+	b, _ := rs.ToBytes()
+	chain.repo.WriteRelayState(height, b)
+	chain.appState.RelayCache.CollectSig(height, rs)
 }
 
 func (chain *Blockchain) RemovePreliminaryHead(batch dbm.Batch) {

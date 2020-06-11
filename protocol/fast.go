@@ -233,7 +233,7 @@ func (fs *fastSync) validateIdentityState(block blockPeer) error {
 }
 
 func (fs *fastSync) validateRelayState(block blockPeer) error {
-	// not necessary for now
+	// todo: make sure block.RelayState is valid
 	return nil
 }
 

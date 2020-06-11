@@ -50,6 +50,12 @@ func (m *Bitmap) WriteTo(buffer *bytes.Buffer) {
 	}
 }
 
+func (m *Bitmap) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	m.WriteTo(buf)
+	return buf.Bytes()
+}
+
 func (m *Bitmap) Read(data []byte) {
 	m.rmap = roaring.NewBitmap()
 	if data[0] == serializeDefault {

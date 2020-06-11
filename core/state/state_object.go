@@ -359,7 +359,7 @@ func (i *Identity) GetMaximumAvailableFlips() uint8 {
 type ApprovedIdentity struct {
 	Approved bool
 	Online   bool
-	Index    uint32
+	Index    uint32 // Index here starts from 1, 0 means not indexed
 	Pk1      []byte
 	Pk2      []byte
 }
@@ -784,6 +784,18 @@ func (s *stateIdentity) SetValidationStatus(status ValidationStatusFlag) {
 	s.touch()
 }
 
+func (s *stateIdentity) HasPublishBlsKey() bool {
+	return len(s.data.BlsPk1) > 0
+}
+
+func (s *stateIdentity) GetBlsPk1() []byte {
+	return s.data.BlsPk1
+}
+
+func (s *stateIdentity) GetBlsPk2() []byte {
+	return s.data.BlsPk2
+}
+
 func (s *stateIdentity) SetBlsPk1(pk1 []byte) {
 	s.data.BlsPk1 = pk1
 	s.touch()
@@ -962,6 +974,10 @@ func (s *stateApprovedIdentity) Online() bool {
 // empty returns whether the account is considered empty.
 func (s *stateApprovedIdentity) empty() bool {
 	return !s.data.Approved
+}
+
+func (s *stateApprovedIdentity) Index() uint32 {
+	return s.data.Index
 }
 
 func (s *stateApprovedIdentity) touch() {

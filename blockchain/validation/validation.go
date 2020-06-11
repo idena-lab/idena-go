@@ -715,7 +715,7 @@ func validateBlsKeysTx(appState *appstate.AppState, tx *types.Transaction, txTyp
 		return InvalidBlsKey
 	}
 
-	if appState.ValidatorsCache.HasRegisterBls(sender) {
+	if appState.ValidatorsCache.HasRegisterRelay(sender) {
 		return DuplicatedTx
 	}
 	if appState.ValidatorsCache.IsBlsKeyExist(attachment.Pk1) {

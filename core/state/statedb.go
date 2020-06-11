@@ -205,6 +205,23 @@ func (s *StateDB) GetEpoch(addr common.Address) uint16 {
 	return 0
 }
 
+func (s *StateDB) HasPublishBlsKey(addr common.Address) bool {
+	stateObject := s.getStateIdentity(addr)
+	if stateObject != nil {
+		return stateObject.HasPublishBlsKey()
+	}
+	return false
+}
+
+func (s *StateDB) GetBlsPk1(addr common.Address) []byte {
+	stateObject := s.getStateIdentity(addr)
+	if stateObject != nil {
+		return stateObject.GetBlsPk1()
+	}
+	return []byte{}
+}
+
+
 func (s *StateDB) Epoch() uint16 {
 	stateObject := s.GetOrNewGlobalObject()
 	return stateObject.data.Epoch

@@ -191,6 +191,48 @@ func (s *IdentityStateDB) Precommit(deleteEmptyObjects bool) *IdentityStateDiff 
 	return diff
 }
 
+// get changed identities for relay
+// must be called before Precommit
+func (s *IdentityStateDB) GetUpdatesForRelay() (int, map[uint32]common.Address, map[common.Address]ApprovedIdentity, []uint32) {
+	addIds := make(map[common.Address]ApprovedIdentity, 0)
+	oldIds := make(map[uint32]common.Address)
+	oldPop := 0
+	s.IterateIdentities(func(key []byte, value []byte) bool {
+		if key == nil {
+			return true
+		}
+		addr := common.Address{}
+		addr.SetBytes(key[1:])
+		var data ApprovedIdentity
+		if err := data.FromBytes(value); err != nil {
+			return false
+		}
+		if data.Approved && data.Index == 0 {
+			addIds[addr] = data
+		} else {
+			oldPop++
+			oldIds[data.Index] = addr
+		}
+		return false
+	})
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	rmIds := make([]uint32, 0)
+	for addr, _ := range s.stateIdentitiesDirty {
+		stateObject := s.stateIdentities[addr]
+		index := stateObject.Index()
+		if stateObject.empty() {
+			delete(addIds, addr)
+			if index > 0 {
+				rmIds = append(rmIds, index)
+			}
+		} else if index == 0 {
+			addIds[addr] = stateObject.data
+		}
+	}
+	return oldPop, oldIds, addIds, rmIds
+}
+
 func (s *IdentityStateDB) Reset() {
 	s.Clear()
 	s.tree.Rollback()

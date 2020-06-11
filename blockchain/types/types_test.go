@@ -45,6 +45,7 @@ func TestBlockFlag_HasFlag(t *testing.T) {
 	require.False(t, flags.HasFlag(ShortSessionStarted))
 	require.False(t, flags.HasFlag(LongSessionStarted))
 	require.False(t, flags.HasFlag(AfterLongSessionStarted))
+	require.False(t, flags.HasFlag(RelayUpdate))
 }
 
 func TestBlockCert_Empty(t *testing.T) {

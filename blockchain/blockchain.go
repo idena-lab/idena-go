@@ -16,6 +16,7 @@ import (
 	"github.com/idena-network/idena-go/config"
 	"github.com/idena-network/idena-go/core/appstate"
 	"github.com/idena-network/idena-go/core/mempool"
+	"github.com/idena-network/idena-go/core/relay"
 	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/core/state/snapshot"
 	"github.com/idena-network/idena-go/core/validators"
@@ -554,9 +555,11 @@ func setNewIdentitiesAttributes(appState *appstate.AppState, totalInvitesCount f
 				})
 				appState.State.SetRequiredFlips(addr, uint8(flips))
 				appState.IdentityState.Add(addr)
+				appState.IdentityState.SetBlsKeys(addr, identity.BlsPk1, identity.BlsPk2)
 			case state.Newbie:
 				appState.State.SetRequiredFlips(addr, uint8(flips))
 				appState.IdentityState.Add(addr)
+				appState.IdentityState.SetBlsKeys(addr, identity.BlsPk1, identity.BlsPk2)
 			case state.Killed, state.Undefined:
 				removeLinksWithInviterAndInvitees(appState.State, addr)
 				appState.State.SetRequiredFlips(addr, 0)
@@ -984,9 +987,12 @@ func (chain *Blockchain) applyStatusSwitch(appState *appstate.AppState, block *t
 }
 
 func (chain *Blockchain) updateRelayState(appState *appstate.AppState, block *types.Block) *state.RelayState {
-	// todo: do update relay state
-	// relay = new(state.RelayState)
-	return nil
+	prev := chain.GetRelayState(block.Height()-1)
+	if !block.Header.Flags().HasFlag(types.RelayUpdate) {
+		return prev
+	}
+	rs := relay.UpdateRelayState(block.Height(), appState.IdentityState, prev)
+	return rs
 }
 
 func (chain *Blockchain) getTxCost(feePerByte *big.Int, tx *types.Transaction) *big.Int {
@@ -1098,6 +1104,7 @@ func (chain *Blockchain) calculateFlags(appState *appstate.AppState, block *type
 	for _, tx := range block.Body.Transactions {
 		if tx.Type == types.KillTx || tx.Type == types.KillInviteeTx {
 			flags |= types.IdentityUpdate
+			flags |= types.RelayUpdate
 		}
 	}
 	stateDb := appState.State
@@ -1124,6 +1131,7 @@ func (chain *Blockchain) calculateFlags(appState *appstate.AppState, block *type
 	if stateDb.ValidationPeriod() == state.AfterLongSessionPeriod && stateDb.BlocksCntWithoutCeremonialTxs() >= state.AfterLongRequiredBlocks {
 		flags |= types.ValidationFinished
 		flags |= types.IdentityUpdate
+		flags |= types.RelayUpdate
 	}
 
 	if block.Height()-appState.State.LastSnapshot() >= chain.config.Consensus.SnapshotRange && appState.State.ValidationPeriod() == state.NonePeriod &&

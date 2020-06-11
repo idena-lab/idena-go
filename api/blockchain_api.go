@@ -347,6 +347,9 @@ func convertToBlock(block *types.Block) *Block {
 	if block.Header.Flags().HasFlag(types.Snapshot) {
 		flags = append(flags, "Snapshot")
 	}
+	if block.Header.Flags().HasFlag(types.RelayUpdate) {
+		flags = append(flags, "RelayUpdate")
+	}
 
 	var coinbase common.Address
 	if !block.IsEmpty() {

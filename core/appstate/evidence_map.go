@@ -5,6 +5,7 @@ import (
 	"github.com/idena-network/idena-go/blockchain/types"
 	"github.com/idena-network/idena-go/common"
 	"github.com/idena-network/idena-go/common/eventbus"
+	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/events"
 	"sync"
 	"time"
@@ -54,7 +55,8 @@ func (m *EvidenceMap) NewFlipsKey(author common.Address) {
 	}
 }
 
-func (m *EvidenceMap) CalculateApprovedCandidates(candidates []common.Address, maps [][]byte) []common.Address {
+// if st is not nil, return data will filter candidates without bls keys published
+func (m *EvidenceMap) CalculateApprovedCandidates(candidates []common.Address, maps [][]byte, st *state.StateDB) []common.Address {
 	score := make(map[uint32]int)
 	minScore := len(maps)/2 + 1
 
@@ -70,7 +72,9 @@ func (m *EvidenceMap) CalculateApprovedCandidates(candidates []common.Address, m
 
 	for i, c := range candidates {
 		if score[uint32(i)] >= minScore {
-			result = append(result, c)
+			if st == nil || st.HasPublishBlsKey(c){
+				result = append(result, c)
+			}
 		}
 	}
 	return result

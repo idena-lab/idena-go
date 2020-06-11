@@ -735,7 +735,7 @@ func (vc *ValidationCeremony) broadcastBlsKeys() {
 	if vc.blsKeysSent || !vc.shouldInteractWithNetwork() || !vc.isCandidate() || !vc.shortAnswersSent {
 		return
 	}
-	if vc.appState.ValidatorsCache.HasRegisterBls(vc.secStore.GetAddress()) {
+	if vc.appState.ValidatorsCache.HasRegisterRelay(vc.secStore.GetAddress()) {
 		return
 	}
 	sk := vc.secStore.GetBlsPriKey()
@@ -833,7 +833,7 @@ func (vc *ValidationCeremony) ApplyNewEpoch(height uint64, appState *appstate.Ap
 	vc.validationStats = statsTypes.NewValidationStats()
 	stats := vc.validationStats
 	stats.FlipCids = vc.flips
-	approvedCandidates := vc.appState.EvidenceMap.CalculateApprovedCandidates(vc.getCandidatesAddresses(), vc.epochDb.ReadEvidenceMaps())
+	approvedCandidates := vc.appState.EvidenceMap.CalculateApprovedCandidates(vc.getCandidatesAddresses(), vc.epochDb.ReadEvidenceMaps(), appState.State)
 	approvedCandidatesSet := mapset.NewSet()
 	for _, item := range approvedCandidates {
 		approvedCandidatesSet.Add(item)

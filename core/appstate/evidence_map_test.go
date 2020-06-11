@@ -127,7 +127,7 @@ func TestEvidenceMap_CalculateApprovedCandidates(t *testing.T) {
 	maps = append(maps, buf.Bytes())
 
 	// act
-	appproved := em.CalculateApprovedCandidates(candidates, maps)
+	appproved := em.CalculateApprovedCandidates(candidates, maps, nil)
 
 	// assert
 	require.Len(appproved, 2)

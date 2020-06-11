@@ -26,9 +26,8 @@ type ValidatorsCache struct {
 	god              common.Address
 	mutex            sync.Mutex
 	height           uint64
-	blsKeys          []*bls.PubKey2
-	blsIndexes       map[common.Address]uint32
-	blsSet           mapset.Set
+	relayPos         map[common.Address]uint32
+	blsPk1Set        mapset.Set
 }
 
 func NewValidatorsCache(identityState *state.IdentityStateDB, godAddress common.Address) *ValidatorsCache {
@@ -38,7 +37,7 @@ func NewValidatorsCache(identityState *state.IdentityStateDB, godAddress common.
 		onlineNodesSet: mapset.NewSet(),
 		log:            log.New(),
 		god:            godAddress,
-		blsSet:         mapset.NewSet(),
+		blsPk1Set:      mapset.NewSet(),
 	}
 }
 
@@ -96,13 +95,13 @@ func (v *ValidatorsCache) IsOnlineIdentity(addr common.Address) bool {
 	return v.onlineNodesSet.Contains(addr)
 }
 
-func (v *ValidatorsCache) HasRegisterBls(addr common.Address) bool {
-	_, exist := v.blsIndexes[addr]
+func (v *ValidatorsCache) HasRegisterRelay(addr common.Address) bool {
+	_, exist := v.relayPos[addr]
 	return exist
 }
 
 func (v *ValidatorsCache) IsBlsKeyExist(pk1 *bls.PubKey1) bool {
-	return v.blsSet.Contains(hex.EncodeToString(pk1.Marshal()))
+	return v.blsPk1Set.Contains(hex.EncodeToString(pk1.Marshal()))
 }
 
 func (v *ValidatorsCache) GetAllOnlineValidators() mapset.Set {
@@ -127,10 +126,8 @@ func (v *ValidatorsCache) loadValidNodes(withBls bool) {
 	v.nodesSet.Clear()
 	v.onlineNodesSet.Clear()
 
-	blsMap := make(map[uint32]*bls.PubKey2)
 	if withBls {
-		v.blsSet.Clear()
-		v.blsIndexes = make(map[common.Address]uint32, len(blsMap))
+		v.blsPk1Set.Clear()
 	}
 
 	v.identityState.IterateIdentities(func(key []byte, value []byte) bool {
@@ -152,13 +149,9 @@ func (v *ValidatorsCache) loadValidNodes(withBls bool) {
 
 		v.nodesSet.Add(addr)
 
-		var err error
 		if withBls && data.Index > 0 {
-			v.blsIndexes[addr] = data.Index
-			v.blsSet.Add(hex.EncodeToString(data.Pk1))
-			if blsMap[data.Index-1], err = bls.NewPubKey2(data.Pk2); err != nil {
-				return false
-			}
+			v.relayPos[addr] = data.Index
+			v.blsPk1Set.Add(hex.EncodeToString(data.Pk1))
 		}
 
 		return false
@@ -166,21 +159,14 @@ func (v *ValidatorsCache) loadValidNodes(withBls bool) {
 
 	v.validOnlineNodes = sortValidNodes(onlineNodes)
 	v.height = v.identityState.Version()
-
-	if withBls {
-		v.blsKeys = make([]*bls.PubKey2, len(blsMap))
-		for i, k := range blsMap {
-			v.blsKeys[i] = k
-		}
-	}
 }
 
 func (v *ValidatorsCache) Clone() *ValidatorsCache {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	indexes := make(map[common.Address]uint32, len(v.blsIndexes))
-	for addr, i := range v.blsIndexes {
+	indexes := make(map[common.Address]uint32, len(v.relayPos))
+	for addr, i := range v.relayPos {
 		indexes[addr] = i
 	}
 	return &ValidatorsCache{
@@ -191,9 +177,8 @@ func (v *ValidatorsCache) Clone() *ValidatorsCache {
 		validOnlineNodes: append(v.validOnlineNodes[:0:0], v.validOnlineNodes...),
 		nodesSet:         v.nodesSet.Clone(),
 		onlineNodesSet:   v.onlineNodesSet.Clone(),
-		blsKeys:          append(v.blsKeys[:0:0], v.blsKeys...),
-		blsIndexes:       indexes,
-		blsSet:           v.blsSet.Clone(),
+		relayPos:         indexes,
+		blsPk1Set:        v.blsPk1Set.Clone(),
 	}
 }
 

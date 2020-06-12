@@ -122,3 +122,4 @@ func (h *pushPullHash) String() string {
 func (h *pushPullHash) IsValid() bool {
 	return h.Type >= pushVote && h.Type <= pushTx
 }
+

@@ -8,6 +8,7 @@ import (
 	"github.com/idena-network/idena-go/config"
 	"github.com/idena-network/idena-go/core/appstate"
 	"github.com/idena-network/idena-go/core/mempool"
+	"github.com/idena-network/idena-go/core/relay"
 	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/crypto"
 	"github.com/idena-network/idena-go/ipfs"
@@ -57,8 +58,9 @@ func NewTestBlockchainWithConfig(withIdentity bool, conf *config.ConsensusConf, 
 	txPool := mempool.NewTxPool(appState, bus, cfg.Mempool)
 	offline := NewOfflineDetector(cfg, db, appState, secStore, bus)
 	keyStore := keystore.NewKeyStore("./testdata", keystore.StandardScryptN, keystore.StandardScryptP)
+	relayStateMgr := relay.NewStateManager(db, secStore, appState, bus)
 
-	chain := NewBlockchain(cfg, db, txPool, appState, ipfs.NewMemoryIpfsProxy(), secStore, bus, offline, keyStore)
+	chain := NewBlockchain(cfg, db, txPool, appState, ipfs.NewMemoryIpfsProxy(), secStore, bus, offline, relayStateMgr, keyStore)
 
 	chain.InitializeChain()
 	appState.Initialize(chain.Head.Height())
@@ -108,8 +110,9 @@ func NewCustomTestBlockchainWithConfig(blocksCount int, emptyBlocksCount int, ke
 	txPool := mempool.NewTxPool(appState, bus, config.GetDefaultMempoolConfig())
 	offline := NewOfflineDetector(cfg, db, appState, secStore, bus)
 	keyStore := keystore.NewKeyStore("./testdata", keystore.StandardScryptN, keystore.StandardScryptP)
+	relayStateMgr := relay.NewStateManager(db, secStore, appState, bus)
 
-	chain := NewBlockchain(cfg, db, txPool, appState, ipfs.NewMemoryIpfsProxy(), secStore, bus, offline, keyStore)
+	chain := NewBlockchain(cfg, db, txPool, appState, ipfs.NewMemoryIpfsProxy(), secStore, bus, offline, relayStateMgr, keyStore)
 	chain.InitializeChain()
 	appState.Initialize(chain.Head.Height())
 
@@ -151,8 +154,9 @@ func (chain *TestBlockchain) Copy() (*TestBlockchain, *appstate.AppState) {
 	txPool := mempool.NewTxPool(appState, bus, config.GetDefaultMempoolConfig())
 	offline := NewOfflineDetector(cfg, db, appState, chain.secStore, bus)
 	keyStore := keystore.NewKeyStore("./testdata", keystore.StandardScryptN, keystore.StandardScryptP)
+	relayStateMgr := relay.NewStateManager(db, chain.secStore, appState, bus)
 
-	copy := NewBlockchain(cfg, db, txPool, appState, ipfs.NewMemoryIpfsProxy(), chain.secStore, bus, offline, keyStore)
+	copy := NewBlockchain(cfg, db, txPool, appState, ipfs.NewMemoryIpfsProxy(), chain.secStore, bus, offline, relayStateMgr, keyStore)
 	copy.InitializeChain()
 	appState.Initialize(copy.Head.Height())
 	return &TestBlockchain{db, copy}, appState

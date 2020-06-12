@@ -15,6 +15,7 @@ const (
 	NewFlipKeysPackageID   = eventbus.EventID("flip-keys-package-new")
 	IpfsPortChangedEventId = eventbus.EventID("ipfs-port-changed")
 	DeleteFlipEventID      = eventbus.EventID("flip-delete")
+	RelayCollectEventID    = eventbus.EventID("relay-collect")
 )
 
 type NewTxEvent struct {
@@ -81,4 +82,12 @@ type DeleteFlipEvent struct {
 
 func (DeleteFlipEvent) EventID() eventbus.EventID {
 	return DeleteFlipEventID
+}
+
+type RelayCollectEvent struct {
+	Req *types.CollectSigReq
+}
+
+func (RelayCollectEvent) EventID() eventbus.EventID {
+	return RelayCollectEventID
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/idena-network/idena-go/core/flip"
 	"github.com/idena-network/idena-go/core/mempool"
 	"github.com/idena-network/idena-go/core/profile"
+	"github.com/idena-network/idena-go/core/relay"
 	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/crypto"
 	"github.com/idena-network/idena-go/ipfs"
@@ -148,11 +149,12 @@ func NewNodeWithInjections(config *config.Config, bus eventbus.Bus, statsCollect
 
 	txpool := mempool.NewTxPool(appState, bus, config.Mempool)
 	flipKeyPool := mempool.NewKeysPool(db, appState, bus, secStore)
+	relayStateMgr := relay.NewStateManager(db, secStore, appState, bus)
 
-	chain := blockchain.NewBlockchain(config, db, txpool, appState, ipfsProxy, secStore, bus, offlineDetector, keyStore)
+	chain := blockchain.NewBlockchain(config, db, txpool, appState, ipfsProxy, secStore, bus, offlineDetector, relayStateMgr, keyStore)
 	proposals, pendingProofs := pengings.NewProposals(chain, appState, offlineDetector)
 	flipper := flip.NewFlipper(db, ipfsProxy, flipKeyPool, txpool, secStore, appState, bus)
-	pm := protocol.NewIdenaGossipHandler(ipfsProxy.Host(), config.P2P, chain, proposals, votes, txpool, flipper, bus, flipKeyPool, appVersion)
+	pm := protocol.NewIdenaGossipHandler(ipfsProxy.Host(), config.P2P, chain, proposals, votes, txpool, flipper, bus, flipKeyPool, relayStateMgr, appVersion)
 	sm := state.NewSnapshotManager(db, appState.State, bus, ipfsProxy, config)
 	downloader := protocol.NewDownloader(pm, config, chain, ipfsProxy, appState, sm, bus, secStore, statsCollector)
 	consensusEngine := consensus.NewEngine(chain, pm, proposals, config.Consensus, appState, votes, txpool, secStore,

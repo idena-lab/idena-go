@@ -1363,3 +1363,84 @@ func (i *TransactionIndex) FromBytes(data []byte) error {
 
 	return nil
 }
+
+type CollectSigReq struct {
+	Height    uint64
+	Root      []byte
+	Collected []byte
+}
+
+func (h *CollectSigReq) ToBytes() ([]byte, error) {
+	protoObj := &models.ProtoCollectSigReq{
+		Height:    h.Height,
+		Root:      h.Root,
+		Collected: h.Collected,
+	}
+	return proto.Marshal(protoObj)
+}
+
+func (h *CollectSigReq) FromBytes(data []byte) error {
+	protoObj := new(models.ProtoCollectSigReq)
+	if err := proto.Unmarshal(data, protoObj); err != nil {
+		return err
+	}
+	h.Height = protoObj.Height
+	h.Root = protoObj.Root
+	h.Collected = protoObj.Collected
+	return nil
+}
+
+type RelaySigBatch struct {
+	Height     uint64
+	Signatures [][]byte
+	Indexes    []uint32
+}
+
+func (h *RelaySigBatch) ToBytes() ([]byte, error) {
+	protoObj := &models.ProtoRelaySigBatch{
+		Height:     h.Height,
+		Signatures: h.Signatures,
+		Indexes:    h.Indexes,
+	}
+	return proto.Marshal(protoObj)
+}
+
+func (h *RelaySigBatch) FromBytes(data []byte) error {
+	protoObj := new(models.ProtoRelaySigBatch)
+	if err := proto.Unmarshal(data, protoObj); err != nil {
+		return err
+	}
+	h.Height = protoObj.Height
+	h.Signatures = protoObj.Signatures
+	h.Indexes = protoObj.Indexes
+	return nil
+}
+
+type RelaySigAgg struct {
+	Height    uint64
+	Root      []byte
+	Signature []byte
+	Flags     []byte
+}
+
+func (h *RelaySigAgg) ToBytes() ([]byte, error) {
+	protoObj := &models.ProtoRelaySigAgg{
+		Height:    h.Height,
+		Root:      h.Root,
+		Signature: h.Signature,
+		Flags:     h.Flags,
+	}
+	return proto.Marshal(protoObj)
+}
+
+func (h *RelaySigAgg) FromBytes(data []byte) error {
+	protoObj := new(models.ProtoRelaySigAgg)
+	if err := proto.Unmarshal(data, protoObj); err != nil {
+		return err
+	}
+	h.Height = protoObj.Height
+	h.Root = protoObj.Root
+	h.Signature = protoObj.Signature
+	h.Flags = protoObj.Flags
+	return nil
+}

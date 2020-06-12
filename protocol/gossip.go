@@ -14,6 +14,7 @@ import (
 	"github.com/idena-network/idena-go/config"
 	"github.com/idena-network/idena-go/core/flip"
 	"github.com/idena-network/idena-go/core/mempool"
+	"github.com/idena-network/idena-go/core/relay"
 	"github.com/idena-network/idena-go/core/state/snapshot"
 	"github.com/idena-network/idena-go/events"
 	"github.com/idena-network/idena-go/log"
@@ -46,6 +47,7 @@ type IdenaGossipHandler struct {
 	proposals       *pengings.Proposals
 	votes           *pengings.Votes
 	pushPullManager *PushPullManager
+	relayStateMgr   *relay.StateManager
 
 	txpool              mempool.TransactionPool
 	flipKeyPool         mempool.FlipKeysPool
@@ -53,6 +55,7 @@ type IdenaGossipHandler struct {
 	txChan              chan *events.NewTxEvent
 	flipKeyChan         chan *events.NewFlipKeyEvent
 	flipKeysPackageChan chan *events.NewFlipKeysPackageEvent
+	relayCollectChan    chan *events.RelayCollectEvent
 	incomeBatches       *sync.Map
 	batchedLock         sync.Mutex
 	bus                 eventbus.Bus
@@ -72,7 +75,7 @@ type metricCollector struct {
 	compress       func(code uint64, size int)
 }
 
-func NewIdenaGossipHandler(host core.Host, cfg config.P2P, chain *blockchain.Blockchain, proposals *pengings.Proposals, votes *pengings.Votes, txpool *mempool.TxPool, fp *flip.Flipper, bus eventbus.Bus, flipKeyPool *mempool.KeysPool, appVersion string) *IdenaGossipHandler {
+func NewIdenaGossipHandler(host core.Host, cfg config.P2P, chain *blockchain.Blockchain, proposals *pengings.Proposals, votes *pengings.Votes, txpool *mempool.TxPool, fp *flip.Flipper, bus eventbus.Bus, flipKeyPool *mempool.KeysPool, relayStateMgr *relay.StateManager, appVersion string) *IdenaGossipHandler {
 	handler := &IdenaGossipHandler{
 		host:                host,
 		cfg:                 cfg,
@@ -83,10 +86,12 @@ func NewIdenaGossipHandler(host core.Host, cfg config.P2P, chain *blockchain.Blo
 		proposals:           proposals,
 		votes:               votes,
 		pushPullManager:     NewPushPullManager(),
+		relayStateMgr:       relayStateMgr,
 		txpool:              mempool.NewAsyncTxPool(txpool),
 		txChan:              make(chan *events.NewTxEvent, 100),
 		flipKeyChan:         make(chan *events.NewFlipKeyEvent, 200),
 		flipKeysPackageChan: make(chan *events.NewFlipKeysPackageEvent, 200),
+		relayCollectChan:    make(chan *events.RelayCollectEvent, 100),
 		flipper:             fp,
 		bus:                 bus,
 		flipKeyPool:         mempool.NewAsyncKeysPool(flipKeyPool),
@@ -139,6 +144,10 @@ func (h *IdenaGossipHandler) Start() {
 		portChangedEvent := e.(*events.IpfsPortChangedEvent)
 		h.host = portChangedEvent.Host
 		setHandler()
+	})
+	h.bus.Subscribe(events.RelayCollectEventID, func(e eventbus.Event) {
+		collectRelaySig := e.(*events.RelayCollectEvent)
+		h.relayCollectChan <- collectRelaySig
 	})
 
 	go h.broadcastLoop()
@@ -362,6 +371,30 @@ func (h *IdenaGossipHandler) handle(p *protoPeer) error {
 		}
 		p.markPayload(msg.Payload)
 		h.proposals.AddBlock(block)
+	case CollectSigReq:
+		data := new(types.CollectSigReq)
+		if err := data.FromBytes(msg.Payload); err != nil {
+			return errResp(DecodeErr, "%v: %v", msg, err)
+		}
+		if err := h.provideRelayState(p, data); err != nil {
+			// todo: return error?
+		}
+	case RelaySigBatch:
+		data := new(types.RelaySigBatch)
+		if err := data.FromBytes(msg.Payload); err != nil {
+			return errResp(DecodeErr, "%v: %v", msg, err)
+		}
+		if err := h.relayStateMgr.MergeSigBatch(data); err != nil {
+			// todo: return error?
+		}
+	case RelaySigAgg:
+		data := new(types.RelaySigAgg)
+		if err := data.FromBytes(msg.Payload); err != nil {
+			return errResp(DecodeErr, "%v: %v", msg, err)
+		}
+		if err := h.relayStateMgr.AddySigAgg(data); err != nil {
+			// todo: return error?
+		}
 	}
 
 	return nil
@@ -554,6 +587,8 @@ func (h *IdenaGossipHandler) broadcastLoop() {
 			h.broadcastFlipKeysPackage(key.Key, key.Own)
 		case pullReq := <-h.pushPullManager.Requests():
 			h.sendPull(pullReq.peer, pullReq.hash)
+		case rc := <-h.relayCollectChan:
+			h.broadcastRelayCollect(rc)
 		}
 	}
 }
@@ -726,6 +761,25 @@ func (h *IdenaGossipHandler) broadcastFlipKeysPackage(flipKeysPackage *types.Pri
 		Hash: flipKeysPackage.Hash128(),
 	}
 	h.sendPush(hash)
+}
+
+func (h *IdenaGossipHandler) broadcastRelayCollect(event *events.RelayCollectEvent) {
+	b, _ := event.Req.ToBytes()
+	h.peers.SendWithFilter(CollectSigReq, msgKey(b), event.Req, false)
+}
+
+func (h *IdenaGossipHandler) provideRelayState(p *protoPeer, req *types.CollectSigReq) error {
+	batch, agg, err := h.relayStateMgr.OnRequest(req)
+	if err != nil {
+		return err
+	}
+	if batch != nil {
+		p.sendMsg(RelaySigBatch, batch, false)
+	}
+	if agg != nil {
+		p.sendMsg(RelaySigAgg, agg, false)
+	}
+	return nil
 }
 
 func (h *IdenaGossipHandler) sendPull(peerId peer.ID, hash pushPullHash) {

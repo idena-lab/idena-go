@@ -3,7 +3,6 @@ package appstate
 import (
 	"github.com/idena-network/idena-go/blockchain/types"
 	"github.com/idena-network/idena-go/common/eventbus"
-	"github.com/idena-network/idena-go/core/relay"
 	"github.com/idena-network/idena-go/core/state"
 	"github.com/idena-network/idena-go/core/validators"
 	models "github.com/idena-network/idena-go/protobuf"
@@ -16,7 +15,6 @@ type AppState struct {
 	State           *state.StateDB
 	NonceCache      *state.NonceCache
 	IdentityState   *state.IdentityStateDB
-	RelayCache      *relay.Cache
 	EvidenceMap     *EvidenceMap
 	defaultTree     bool
 }
@@ -27,7 +25,6 @@ func NewAppState(db dbm.DB, bus eventbus.Bus) *AppState {
 	return &AppState{
 		State:         stateDb,
 		IdentityState: identityStateDb,
-		RelayCache:    relay.NewCache(identityStateDb),
 		EvidenceMap:   NewEvidenceMap(bus),
 		defaultTree:   true,
 	}
@@ -51,7 +48,6 @@ func (s *AppState) ForCheck(height uint64) (*AppState, error) {
 		State:           st,
 		IdentityState:   identityState,
 		ValidatorsCache: validatorsCache,
-		RelayCache:      s.RelayCache,
 		NonceCache:      s.NonceCache,
 	}, nil
 }
@@ -75,7 +71,6 @@ func (s *AppState) Readonly(height uint64) (*AppState, error) {
 		State:           st,
 		IdentityState:   identityState,
 		ValidatorsCache: validatorsCache,
-		RelayCache:      s.RelayCache,
 		NonceCache:      s.NonceCache,
 	}, nil
 }
@@ -95,7 +90,6 @@ func (s *AppState) ForCheckWithOverwrite(height uint64) (*AppState, error) {
 	appState := &AppState{
 		State:         state,
 		IdentityState: identityState,
-		RelayCache:    s.RelayCache,
 		NonceCache:    s.NonceCache,
 	}
 	appState.ValidatorsCache = validators.NewValidatorsCache(appState.IdentityState, appState.State.GodAddress())

@@ -70,6 +70,7 @@ type Blockchain struct {
 	log             log.Logger
 	txpool          *mempool.TxPool
 	appState        *appstate.AppState
+	relayStateMgr   *relay.StateManager
 	offlineDetector *OfflineDetector
 	indexer         *indexer
 	secretKey       *ecdsa.PrivateKey
@@ -91,13 +92,14 @@ func init() {
 }
 
 func NewBlockchain(config *config.Config, db dbm.DB, txpool *mempool.TxPool, appState *appstate.AppState,
-	ipfs ipfs.Proxy, secStore *secstore.SecStore, bus eventbus.Bus, offlineDetector *OfflineDetector, keyStore *keystore.KeyStore) *Blockchain {
+	ipfs ipfs.Proxy, secStore *secstore.SecStore, bus eventbus.Bus, offlineDetector *OfflineDetector, relayStateMgr *relay.StateManager, keyStore *keystore.KeyStore) *Blockchain {
 	return &Blockchain{
 		repo:            database.NewRepo(db),
 		config:          config,
 		log:             log.New(),
 		txpool:          txpool,
 		appState:        appState,
+		relayStateMgr:   relayStateMgr,
 		ipfs:            ipfs,
 		timing:          NewTiming(config.Validation),
 		bus:             bus,
@@ -987,17 +989,16 @@ func (chain *Blockchain) applyStatusSwitch(appState *appstate.AppState, block *t
 }
 
 func (chain *Blockchain) updateRelayState(appState *appstate.AppState, block *types.Block) *state.RelayState {
-	prev := chain.GetRelayState(block.Height()-1)
+	prev := chain.GetRelayState(block.Height() - 1)
 	if !block.Header.Flags().HasFlag(types.RelayUpdate) {
-		return prev
+		return &state.RelayState{
+			Root:       prev.Root,
+			Signature:  nil,
+			Population: prev.Population,
+			SignFlags:  nil,
+		}
 	}
-	myOldIdx := appState.IdentityState.GetIndex(chain.coinBaseAddress)
-	rs := relay.UpdateRelayState(block.Height(), appState.IdentityState, prev)
-	if myOldIdx > 0 {
-		rs.Signature = chain.secStore.GetBlsPriKey().Sign(rs.Root).Marshal()
-		rs.SignFlags.Add(myOldIdx)
-	}
-	return rs
+	return relay.UpdateRelayState(block.Height(), appState.IdentityState, prev)
 }
 
 func (chain *Blockchain) getTxCost(feePerByte *big.Int, tx *types.Transaction) *big.Int {
@@ -1661,7 +1662,7 @@ func (chain *Blockchain) ValidateHeader(header, prevBlock *types.Header) error {
 	}
 
 	if header.EmptyBlockHeader != nil {
-		//TODO: validate empty block hash
+		// TODO: validate empty block hash
 		return nil
 	}
 
@@ -1687,7 +1688,7 @@ func (chain *Blockchain) ValidateHeader(header, prevBlock *types.Header) error {
 	if hash != header.Seed() {
 		return errors.New("seed is invalid")
 	}
-	//TODO: add proposer's check??
+	// TODO: add proposer's check??
 
 	return nil
 }
@@ -1707,13 +1708,7 @@ func (chain *Blockchain) GetIdentityDiff(height uint64) *state.IdentityStateDiff
 }
 
 func (chain *Blockchain) GetRelayState(height uint64) *state.RelayState {
-	data := chain.repo.ReadRelayState(height)
-	if data == nil {
-		return nil
-	}
-	rs := new(state.RelayState)
-	rs.FromBytes(data)
-	return rs
+	return chain.relayStateMgr.GetRelayState(height)
 }
 
 func (chain *Blockchain) ReadSnapshotManifest() *snapshot.Manifest {
@@ -1740,12 +1735,7 @@ func (chain *Blockchain) WriteIdentityStateDiff(height uint64, diff *state.Ident
 }
 
 func (chain *Blockchain) WriteRelayState(height uint64, rs *state.RelayState) {
-	if rs.Empty() {
-		return
-	}
-	b, _ := rs.ToBytes()
-	chain.repo.WriteRelayState(height, b)
-	chain.appState.RelayCache.CollectSig(height, rs)
+	chain.relayStateMgr.WriteRelayState(height, rs)
 }
 
 func (chain *Blockchain) RemovePreliminaryHead(batch dbm.Batch) {

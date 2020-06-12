@@ -17,4 +17,7 @@ const (
 	Push              = 0x0E
 	Pull              = 0x0F
 	Block             = 0x10
+	CollectSigReq     = 0x11
+	RelaySigBatch     = 0x12
+	RelaySigAgg       = 0x13
 )

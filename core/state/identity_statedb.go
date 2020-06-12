@@ -541,7 +541,7 @@ type RelayState struct {
 	Root       []byte
 	Signature  []byte
 	Population uint32
-	SignFlags  *common.Bitmap
+	SignFlags  *common.Bitmap // nil means need no sign
 }
 
 func (relay *RelayState) SignRate() float64 {
@@ -553,6 +553,10 @@ func (relay *RelayState) SignRate() float64 {
 
 func (relay *RelayState) Empty() bool {
 	return relay == nil || len(relay.Root) == 0
+}
+
+func (relay *RelayState) NeedSign() bool {
+	return !relay.Empty() && relay.SignFlags != nil
 }
 
 func (relay *RelayState) ToProto() *models.ProtoRelayState {

@@ -218,7 +218,7 @@ func AggregatePubKeys2(keys []*PubKey2) *PubKey2 {
 	return &PubKey2{pk: *p}
 }
 
-func AggregateSignatures(signs []*Signature) *Signature {
+func AggregateSignatures(signs ...*Signature) *Signature {
 	points := make([]*bn256.G1, len(signs))
 	for i := 0; i < len(signs); i++ {
 		points[i] = &signs[i].s

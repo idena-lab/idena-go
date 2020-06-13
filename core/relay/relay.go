@@ -150,7 +150,7 @@ func (sm *StateManager) prepareCollect() *collectingCache {
 		rs := sm.GetRelayState(height)
 		if rs.NeedSign() && rs.SignRate() <= MultiSigThreshold {
 			// reset cache
-			prevState, err := sm.appState.IdentityState.Readonly(height)
+			prevState, err := sm.appState.IdentityState.Readonly(height - 1)
 			if err != nil {
 				// todo: add logs
 				continue
@@ -396,6 +396,108 @@ func doAddSig(c *collectingCache, agg *types.RelaySigAgg) (bool, error) {
 	c.state.Signature = aggSig.Marshal()
 	c.state.SignFlags = aggFlags
 	return true, nil
+}
+
+func (sm *StateManager) GenerateInitData(height uint64) (root []byte, ids []common.Address, pk1s []*bls.PubKey1) {
+	rs := sm.GetRelayState(height)
+	if rs.Empty() {
+		return
+	}
+	root = rs.Root
+	ids = make([]common.Address, rs.Population)
+	pk1s = make([]*bls.PubKey1, rs.Population)
+	newState, _ := sm.appState.IdentityState.Readonly(height)
+	newState.IterateIdentities(func(key []byte, value []byte) bool {
+		if key == nil {
+			return true
+		}
+		var data state.ApprovedIdentity
+		if err := data.FromBytes(value); err != nil {
+			return false
+		}
+		if data.Approved && data.Index > 0 {
+			idx := data.Index - 1
+			addr := common.Address{}
+			addr.SetBytes(key[1:])
+			ids[idx] = addr
+			pk1s[idx], _ = bls.NewPubKey1(data.Pk1)
+		}
+		return false
+	})
+	return
+}
+
+func (sm *StateManager) GenerateUpdateData(height uint64, rs *state.RelayState) (addIds []common.Address, addPk1s []*bls.PubKey1, rmFlags *state.BitArray, rmCount uint32, apk2 *bls.PubKey2) {
+	if !rs.NeedSign() {
+		return
+	}
+	oldState, _ := sm.appState.IdentityState.Readonly(height - 1)
+	oldPop := sm.GetRelayState(height - 1).Population
+	// load old state
+	oldPk2s := make([]*bls.PubKey2, oldPop)
+	oldIds := make(map[common.Address]uint32, 0)
+	oldState.IterateIdentities(func(key []byte, value []byte) bool {
+		if key == nil {
+			return true
+		}
+		var data state.ApprovedIdentity
+		if err := data.FromBytes(value); err != nil {
+			return false
+		}
+		if data.Approved && data.Index > 0 {
+			addr := common.Address{}
+			addr.SetBytes(key[1:])
+			oldIds[addr] = data.Index
+			pk2, _ := bls.NewPubKey2(data.Pk2)
+			oldPk2s[data.Index-1] = pk2
+		}
+		return false
+	})
+	// load new state and record diff
+	newState, _ := sm.appState.IdentityState.Readonly(height)
+	newIds := make(map[common.Address]uint32, 0)
+	addIdMap := make(map[common.Address]state.ApprovedIdentity, 0)
+	newState.IterateIdentities(func(key []byte, value []byte) bool {
+		if key == nil {
+			return true
+		}
+		var data state.ApprovedIdentity
+		if err := data.FromBytes(value); err != nil {
+			return false
+		}
+		if data.Approved && data.Index > 0 {
+			addr := common.Address{}
+			addr.SetBytes(key[1:])
+			newIds[addr] = data.Index
+			if oldIds[addr] == 0 {
+				addIdMap[addr] = data
+			}
+		}
+		return false
+	})
+	addIds = getOrderedObjectsKeys(addIdMap)
+	addPk1s = make([]*bls.PubKey1, len(addIds))
+	for i, addr := range addIds {
+		addPk1s[i], _ = bls.NewPubKey1(addIdMap[addr].Pk1)
+	}
+	// get removed info
+	rmFlags = state.NewBitArray(int(oldPop))
+	for addr, idx := range oldIds {
+		if newIds[addr] == 0 {
+			rmFlags.SetIndex(int(idx-1), true)
+			rmCount++
+		}
+	}
+	// calc apk2
+	if rs.SignFlags != nil {
+		signers := rs.SignFlags.ToArray()
+		pk2s := make([]*bls.PubKey2, len(signers))
+		for i, idx := range signers {
+			pk2s[i] = oldPk2s[idx-1]
+		}
+		apk2 = bls.AggregatePubKeys2(pk2s)
+	}
+	return
 }
 
 // update identity indexes for relay

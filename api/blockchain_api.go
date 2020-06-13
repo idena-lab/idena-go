@@ -8,6 +8,9 @@ import (
 	"github.com/idena-network/idena-go/common"
 	"github.com/idena-network/idena-go/common/hexutil"
 	"github.com/idena-network/idena-go/core/mempool"
+	"github.com/idena-network/idena-go/core/relay"
+	"github.com/idena-network/idena-go/core/state"
+	"github.com/idena-network/idena-go/crypto/bls"
 	"github.com/idena-network/idena-go/ipfs"
 	"github.com/idena-network/idena-go/protocol"
 	"github.com/idena-network/idena-go/rlp"
@@ -39,16 +42,17 @@ var (
 )
 
 type BlockchainApi struct {
-	bc      *blockchain.Blockchain
-	baseApi *BaseApi
-	ipfs    ipfs.Proxy
-	pool    *mempool.TxPool
-	d       *protocol.Downloader
-	pm      *protocol.IdenaGossipHandler
+	bc            *blockchain.Blockchain
+	baseApi       *BaseApi
+	ipfs          ipfs.Proxy
+	pool          *mempool.TxPool
+	d             *protocol.Downloader
+	pm            *protocol.IdenaGossipHandler
+	relayStateMgr *relay.StateManager
 }
 
-func NewBlockchainApi(baseApi *BaseApi, bc *blockchain.Blockchain, ipfs ipfs.Proxy, pool *mempool.TxPool, d *protocol.Downloader, pm *protocol.IdenaGossipHandler) *BlockchainApi {
-	return &BlockchainApi{bc, baseApi, ipfs, pool, d, pm}
+func NewBlockchainApi(baseApi *BaseApi, bc *blockchain.Blockchain, ipfs ipfs.Proxy, pool *mempool.TxPool, d *protocol.Downloader, pm *protocol.IdenaGossipHandler, relayStateMgr *relay.StateManager) *BlockchainApi {
+	return &BlockchainApi{bc, baseApi, ipfs, pool, d, pm, relayStateMgr}
 }
 
 type Block struct {
@@ -370,4 +374,94 @@ func convertToBlock(block *types.Block) *Block {
 		Flags:        flags,
 		OfflineAddr:  block.Header.OfflineAddr(),
 	}
+}
+
+type RelayState struct {
+	Height     uint64      `json:"height"`
+	Root       common.Hash `json:"root"`
+	Signature  string      `json:"signature"`
+	Population uint32      `json:"population"`
+	Signers    []uint32    `json:"signers"`
+}
+
+func (api *BlockchainApi) GetRelayState(height uint64) *RelayState {
+	rs := api.relayStateMgr.GetRelayState(height)
+	ret := &RelayState{
+		Height:     height,
+		Root:       common.BytesToHash(rs.Root),
+		Population: rs.Population,
+		Signers:    []uint32{},
+	}
+	if rs.Signature != nil {
+		ret.Signature = hexutil.Encode(rs.Signature)
+	}
+	if rs.SignFlags != nil {
+		ret.Signers = rs.SignFlags.ToArray()
+	}
+	return ret
+}
+
+type RelayInitData struct {
+	Height uint64           `json:"height"`
+	Root   common.Hash      `json:"root"`
+	Ids    []common.Address `json:"ids"`
+	Pk1s   [][2]string      `json:"pk1s"`
+}
+
+// Get data for init in ethereum relay contract
+func (api *BlockchainApi) GenerateInitData(height uint64) *RelayInitData {
+	root, ids, pk1s := api.relayStateMgr.GenerateInitData(height)
+	ret := &RelayInitData{
+		Height: height,
+		Root:   common.BytesToHash(root),
+		Ids:    ids,
+		Pk1s:   make([][2]string, len(pk1s)),
+	}
+	for i, pk1 := range pk1s {
+		ret.Pk1s[i] = pk1.ToHex()
+	}
+	return ret
+}
+
+type RelayUpdateData struct {
+	NeedUpdate  bool             `json:"needUpdate"`
+	Height      uint64           `json:"height"`
+	AddIds      []common.Address `json:"addIds"`
+	AddPk1s     [][2]string      `json:"addPk1s"`
+	RemoveFlags string           `json:"removeFlags"`
+	RemoveCount uint32           `json:"removeCount"`
+	SignFlags   string           `json:"removeCount"`
+	Signature   [2]string        `json:"signature"`
+	Apk2        [4]string        `json:"apk2"`
+}
+
+// Get data for updating in ethereum relay contract
+func (api *BlockchainApi) GenerateUpdateData(height uint64) *RelayUpdateData {
+	rs := api.relayStateMgr.GetRelayState(height)
+	ret := &RelayUpdateData{}
+	if !rs.NeedSign() {
+		return ret
+	}
+	addIds, addPk1s, rmFlags, rmCount, apk2 := api.relayStateMgr.GenerateUpdateData(height, rs)
+	ret.AddIds = addIds
+	ret.AddPk1s = make([][2]string, len(addPk1s))
+	for i, pk1 := range addPk1s {
+		ret.AddPk1s[i] = pk1.ToHex()
+	}
+	ret.RemoveFlags = hexutil.Encode(rmFlags.Bytes())
+	ret.RemoveCount = rmCount
+	// convert sign flags
+	signFlags := state.NewBitArray(int(rs.Population))
+	for _, idx := range rs.SignFlags.ToArray() {
+		signFlags.SetIndex(int(idx), true)
+	}
+	ret.SignFlags = hexutil.Encode(signFlags.Bytes())
+	if rs.Signature != nil {
+		sig, _ := bls.NewSignature(rs.Signature)
+		ret.Signature = sig.ToHex()
+	}
+	if apk2 != nil {
+		ret.Apk2 = apk2.ToHex()
+	}
+	return ret
 }

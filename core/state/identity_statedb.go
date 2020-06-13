@@ -539,7 +539,7 @@ type RelayState struct {
 	Root       []byte
 	Signature  []byte
 	Population uint32
-	SignFlags  *common.Bitmap // nil means need no sign
+	SignFlags  *common.Bitmap // nil means no signature is required
 }
 
 func (relay *RelayState) SignRate() float64 {

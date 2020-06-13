@@ -48,6 +48,7 @@ type Node struct {
 	consensusEngine *consensus.Engine
 	txpool          *mempool.TxPool
 	flipKeyPool     *mempool.KeysPool
+	relayStateMgr   *relay.StateManager
 	rpcAPIs         []rpc.API
 	httpListener    net.Listener // HTTP RPC listener socket to server API requests
 	httpHandler     *rpc.Server  // HTTP RPC request handler to process the API requests
@@ -169,6 +170,7 @@ func NewNodeWithInjections(config *config.Config, bus eventbus.Bus, statsCollect
 		appState:        appState,
 		consensusEngine: consensusEngine,
 		txpool:          txpool,
+		relayStateMgr:   relayStateMgr,
 		log:             log.New(),
 		keyStore:        keyStore,
 		fp:              flipper,
@@ -342,7 +344,7 @@ func (node *Node) apis() []rpc.API {
 		{
 			Namespace: "bcn",
 			Version:   "1.0",
-			Service:   api.NewBlockchainApi(baseApi, node.blockchain, node.ipfsProxy, node.txpool, node.downloader, node.pm),
+			Service:   api.NewBlockchainApi(baseApi, node.blockchain, node.ipfsProxy, node.txpool, node.downloader, node.pm, node.relayStateMgr),
 			Public:    true,
 		},
 	}

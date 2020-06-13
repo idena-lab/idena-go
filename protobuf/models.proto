@@ -147,8 +147,9 @@ message ProtoCollectSigReq {
 
 message ProtoRelaySigBatch {
     uint64 height = 1;
-    repeated bytes signatures = 2;
-    repeated uint32 indexes = 3;
+    bytes root = 2;
+    repeated bytes signatures = 3;
+    repeated uint32 indexes = 4;
 }
 
 message ProtoRelaySigAgg {

@@ -991,12 +991,12 @@ func (chain *Blockchain) applyStatusSwitch(appState *appstate.AppState, block *t
 func (chain *Blockchain) updateRelayState(appState *appstate.AppState, block *types.Block) *state.RelayState {
 	prev := chain.GetRelayState(block.Height() - 1)
 	if !block.Header.Flags().HasFlag(types.RelayUpdate) {
-		return &state.RelayState{
-			Root:       prev.Root,
-			Signature:  nil,
-			Population: prev.Population,
-			SignFlags:  nil,
+		rs := &state.RelayState{}
+		if prev != nil {
+			rs.Root = prev.Root
+			rs.Population = prev.Population
 		}
+		return rs
 	}
 	return relay.UpdateRelayState(block.Height(), appState.IdentityState, prev)
 }

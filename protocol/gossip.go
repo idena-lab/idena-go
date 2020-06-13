@@ -372,27 +372,36 @@ func (h *IdenaGossipHandler) handle(p *protoPeer) error {
 		p.markPayload(msg.Payload)
 		h.proposals.AddBlock(block)
 	case CollectSigReq:
-		data := new(types.CollectSigReq)
-		if err := data.FromBytes(msg.Payload); err != nil {
+		req := new(types.CollectSigReq)
+		if err := req.FromBytes(msg.Payload); err != nil {
 			return errResp(DecodeErr, "%v: %v", msg, err)
 		}
-		if err := h.provideRelayState(p, data); err != nil {
+		if !req.IsValid() {
+			return errResp(ValidationErr, "%v", msg)
+		}
+		if err := h.provideRelayState(p, req); err != nil {
 			// todo: return error?
 		}
 	case RelaySigBatch:
-		data := new(types.RelaySigBatch)
-		if err := data.FromBytes(msg.Payload); err != nil {
+		batch := new(types.RelaySigBatch)
+		if err := batch.FromBytes(msg.Payload); err != nil {
 			return errResp(DecodeErr, "%v: %v", msg, err)
 		}
-		if err := h.relayStateMgr.MergeSigBatch(data); err != nil {
+		if !batch.IsValid() {
+			return errResp(ValidationErr, "%v", msg)
+		}
+		if err := h.relayStateMgr.MergeSigBatch(batch); err != nil {
 			// todo: return error?
 		}
 	case RelaySigAgg:
-		data := new(types.RelaySigAgg)
-		if err := data.FromBytes(msg.Payload); err != nil {
+		agg := new(types.RelaySigAgg)
+		if err := agg.FromBytes(msg.Payload); err != nil {
 			return errResp(DecodeErr, "%v: %v", msg, err)
 		}
-		if err := h.relayStateMgr.AddySigAgg(data); err != nil {
+		if !agg.IsValid() {
+			return errResp(ValidationErr, "%v", msg)
+		}
+		if err := h.relayStateMgr.AddSigAgg(agg); err != nil {
 			// todo: return error?
 		}
 	}
@@ -769,14 +778,10 @@ func (h *IdenaGossipHandler) broadcastRelayCollect(event *events.RelayCollectEve
 }
 
 func (h *IdenaGossipHandler) provideRelayState(p *protoPeer, req *types.CollectSigReq) error {
-	batch, agg, err := h.relayStateMgr.OnRequest(req)
-	if err != nil {
-		return err
-	}
+	batch, agg := h.relayStateMgr.ProvideState(req)
 	if batch != nil {
 		p.sendMsg(RelaySigBatch, batch, false)
-	}
-	if agg != nil {
+	} else if agg != nil {
 		p.sendMsg(RelaySigAgg, agg, false)
 	}
 	return nil

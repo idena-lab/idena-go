@@ -1370,50 +1370,61 @@ type CollectSigReq struct {
 	Collected []byte
 }
 
-func (h *CollectSigReq) ToBytes() ([]byte, error) {
+func (req *CollectSigReq) ToBytes() ([]byte, error) {
 	protoObj := &models.ProtoCollectSigReq{
-		Height:    h.Height,
-		Root:      h.Root,
-		Collected: h.Collected,
+		Height:    req.Height,
+		Root:      req.Root,
+		Collected: req.Collected,
 	}
 	return proto.Marshal(protoObj)
 }
 
-func (h *CollectSigReq) FromBytes(data []byte) error {
+func (req *CollectSigReq) FromBytes(data []byte) error {
 	protoObj := new(models.ProtoCollectSigReq)
 	if err := proto.Unmarshal(data, protoObj); err != nil {
 		return err
 	}
-	h.Height = protoObj.Height
-	h.Root = protoObj.Root
-	h.Collected = protoObj.Collected
+	req.Height = protoObj.Height
+	req.Root = protoObj.Root
+	req.Collected = protoObj.Collected
 	return nil
+}
+
+func (req *CollectSigReq) IsValid() bool {
+	return req.Height > 0 && len(req.Root) > 0 && len(req.Collected) > 0
 }
 
 type RelaySigBatch struct {
 	Height     uint64
+	Root       []byte
 	Signatures [][]byte
 	Indexes    []uint32
 }
 
-func (h *RelaySigBatch) ToBytes() ([]byte, error) {
+func (batch *RelaySigBatch) ToBytes() ([]byte, error) {
 	protoObj := &models.ProtoRelaySigBatch{
-		Height:     h.Height,
-		Signatures: h.Signatures,
-		Indexes:    h.Indexes,
+		Height:     batch.Height,
+		Root:       batch.Root,
+		Signatures: batch.Signatures,
+		Indexes:    batch.Indexes,
 	}
 	return proto.Marshal(protoObj)
 }
 
-func (h *RelaySigBatch) FromBytes(data []byte) error {
+func (batch *RelaySigBatch) FromBytes(data []byte) error {
 	protoObj := new(models.ProtoRelaySigBatch)
 	if err := proto.Unmarshal(data, protoObj); err != nil {
 		return err
 	}
-	h.Height = protoObj.Height
-	h.Signatures = protoObj.Signatures
-	h.Indexes = protoObj.Indexes
+	batch.Height = protoObj.Height
+	batch.Root = protoObj.Root
+	batch.Signatures = protoObj.Signatures
+	batch.Indexes = protoObj.Indexes
 	return nil
+}
+
+func (batch *RelaySigBatch) IsValid() bool {
+	return batch.Height > 0 && len(batch.Root) > 0 && len(batch.Indexes) == len(batch.Signatures)
 }
 
 type RelaySigAgg struct {
@@ -1423,24 +1434,28 @@ type RelaySigAgg struct {
 	Flags     []byte
 }
 
-func (h *RelaySigAgg) ToBytes() ([]byte, error) {
+func (agg *RelaySigAgg) ToBytes() ([]byte, error) {
 	protoObj := &models.ProtoRelaySigAgg{
-		Height:    h.Height,
-		Root:      h.Root,
-		Signature: h.Signature,
-		Flags:     h.Flags,
+		Height:    agg.Height,
+		Root:      agg.Root,
+		Signature: agg.Signature,
+		Flags:     agg.Flags,
 	}
 	return proto.Marshal(protoObj)
 }
 
-func (h *RelaySigAgg) FromBytes(data []byte) error {
+func (agg *RelaySigAgg) FromBytes(data []byte) error {
 	protoObj := new(models.ProtoRelaySigAgg)
 	if err := proto.Unmarshal(data, protoObj); err != nil {
 		return err
 	}
-	h.Height = protoObj.Height
-	h.Root = protoObj.Root
-	h.Signature = protoObj.Signature
-	h.Flags = protoObj.Flags
+	agg.Height = protoObj.Height
+	agg.Root = protoObj.Root
+	agg.Signature = protoObj.Signature
+	agg.Flags = protoObj.Flags
 	return nil
+}
+
+func (agg *RelaySigAgg) IsValid() bool {
+	return agg.Height > 0 && len(agg.Root) > 0 && len(agg.Flags) > 0
 }

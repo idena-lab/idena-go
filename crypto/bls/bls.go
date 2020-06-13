@@ -145,6 +145,9 @@ func (p *PubKey2) Add(other *PubKey2) *PubKey2 {
 }
 
 func NewSignature(m []byte) (*Signature, error) {
+	if len(m) == 0 {
+		return nil, nil
+	}
 	s := new(Signature)
 	if _, err := s.s.Unmarshal(m); err != nil {
 		return nil, err
@@ -162,6 +165,9 @@ func (s *Signature) ToHex() [2]string {
 }
 
 func (s *Signature) Marshal() []byte {
+	if s == nil {
+		return nil
+	}
 	return s.s.Marshal()
 }
 

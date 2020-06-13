@@ -193,10 +193,9 @@ func (s *IdentityStateDB) Precommit(deleteEmptyObjects bool) *IdentityStateDiff 
 
 // get changed identities for relay
 // must be called before Precommit
-func (s *IdentityStateDB) GetUpdatesForRelay() (int, map[uint32]common.Address, map[common.Address]ApprovedIdentity, []uint32) {
+func (s *IdentityStateDB) GetUpdatesForRelay() (map[uint32]common.Address, map[common.Address]ApprovedIdentity, []uint32) {
 	addIds := make(map[common.Address]ApprovedIdentity, 0)
 	oldIds := make(map[uint32]common.Address)
-	oldPop := 0
 	s.IterateIdentities(func(key []byte, value []byte) bool {
 		if key == nil {
 			return true
@@ -210,7 +209,6 @@ func (s *IdentityStateDB) GetUpdatesForRelay() (int, map[uint32]common.Address, 
 		if data.Approved && data.Index == 0 {
 			addIds[addr] = data
 		} else {
-			oldPop++
 			oldIds[data.Index] = addr
 		}
 		return false
@@ -230,7 +228,7 @@ func (s *IdentityStateDB) GetUpdatesForRelay() (int, map[uint32]common.Address, 
 			addIds[addr] = stateObject.data
 		}
 	}
-	return oldPop, oldIds, addIds, rmIds
+	return oldIds, addIds, rmIds
 }
 
 func (s *IdentityStateDB) Reset() {

@@ -386,12 +386,12 @@ type RelayState struct {
 
 func (api *BlockchainApi) GetRelayState(height uint64) *RelayState {
 	rs := api.relayStateMgr.GetRelayState(height)
-	ret := &RelayState{
-		Height:     height,
-		Root:       common.BytesToHash(rs.Root),
-		Population: rs.Population,
-		Signers:    []uint32{},
+	ret := &RelayState{Height: height}
+	if rs.Empty() {
+		return ret
 	}
+	ret.Root = common.BytesToHash(rs.Root)
+	ret.Population = rs.Population
 	if rs.Signature != nil {
 		ret.Signature = hexutil.Encode(rs.Signature)
 	}

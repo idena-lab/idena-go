@@ -527,8 +527,8 @@ func UpdateRelayState(height uint64, s *state.IdentityStateDB, prev *state.Relay
 		s.SetIndex(addSorted[hasFill], i)
 	}
 	// rollback tail ids to fill rm slots
-	for tailIndex, rmLast := uint32(oldPop), len(rmIds)-1; hasFill < rmLast; hasFill++ {
-		for ; tailIndex == rmIds[rmLast] && hasFill < rmLast; tailIndex-- {
+	for tailIndex, rmLast := uint32(oldPop), len(rmIds)-1; hasFill <= rmLast; hasFill++ {
+		for ; tailIndex == rmIds[rmLast] && hasFill <= rmLast; tailIndex-- {
 			rmLast--
 		}
 		if tailIndex > rmIds[hasFill] {
@@ -564,7 +564,11 @@ func calcRoot(height uint64, prev []byte, rmFlags *state.BitArray, addSorted []c
 	}
 	h := append(prev, BigToBytes(big.NewInt(int64(height)), 32)...)
 	h = append(h, hIds[:]...)
-	h = append(h, crypto.Keccak256(rmFlags.Bytes())...)
+	var rmBytes []byte
+	if rmFlags != nil {
+		rmBytes = rmFlags.Bytes()
+	}
+	h = append(h, crypto.Keccak256(rmBytes)...)
 	return crypto.Keccak256(h)
 }
 

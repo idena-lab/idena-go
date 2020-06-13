@@ -980,6 +980,11 @@ func (s *stateApprovedIdentity) Index() uint32 {
 	return s.data.Index
 }
 
+func (s *stateApprovedIdentity) GetPk1() []byte {
+	return s.data.Pk1
+}
+
+
 func (s *stateApprovedIdentity) touch() {
 	if s.onDirty != nil {
 		s.onDirty(s.Address())

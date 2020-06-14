@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"github.com/idena-network/idena-go/crypto/bn256"
 	"github.com/idena-network/idena-go/crypto/sha3"
-	"io"
 	"math/big"
 )
 
@@ -49,12 +48,37 @@ func NewPriKey(k *big.Int) (*PriKey, error) {
 	return sk, nil
 }
 
-func GenerateFromSeed(rand io.Reader) (*PriKey, error) {
-	k, _, err := bn256.RandomG1(rand)
+type SeedReader struct {
+	seed []byte
+	pos  int
+}
+
+func NewSeedReader(seed []byte) *SeedReader {
+	return &SeedReader{
+		seed: Keccak256(seed),
+		pos:  0,
+	}
+}
+
+func (r *SeedReader) Read(p []byte) (n int, err error) {
+	for n < len(p) {
+		if r.pos >= len(r.seed) {
+			r.seed = Keccak256(r.seed)
+			r.pos = 0
+		}
+		m := copy(p[n:], r.seed[r.pos:])
+		n += m
+		r.pos += m
+	}
+	return n, nil
+}
+
+func GenerateFromSeed(seed []byte) (*PriKey, error) {
+	sk, _, err := bn256.RandomG1(NewSeedReader(seed))
 	if err != nil {
 		return nil, err
 	}
-	return &PriKey{sk: *k}, nil
+	return &PriKey{sk: *sk}, nil
 }
 
 // return public key on G1
@@ -154,7 +178,6 @@ func NewSignature(m []byte) (*Signature, error) {
 	}
 	return s, nil
 }
-
 
 func (s *Signature) GetPoint() *bn256.G1 {
 	return new(bn256.G1).Set(&s.s)

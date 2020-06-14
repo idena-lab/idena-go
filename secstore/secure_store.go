@@ -1,7 +1,6 @@
 package secstore
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/awnumar/memguard"
@@ -63,7 +62,7 @@ var blsSeedHash = []byte{74, 45, 164, 141, 60, 130, 54, 64, 124, 176, 239, 157, 
 
 func (s *SecStore) GetBlsPriKey() *bls.PriKey {
 	sig := s.Sign(blsSeedHash)
-	k, _ := bls.GenerateFromSeed(bytes.NewReader(sig))
+	k, _ := bls.GenerateFromSeed(sig)
 	return k
 }
 
